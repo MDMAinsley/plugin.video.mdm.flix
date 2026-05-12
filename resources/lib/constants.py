@@ -1,0 +1,10 @@
+ADDON_ID = "plugin.video.mdm.flix"
+ADDON_NAME = "MDM Flix"
+
+ACTION_HOME = "home"
+ACTION_MOVIES = "movies"
+ACTION_TVSHOWS = "tvshows"
+ACTION_SEARCH = "search"
+ACTION_TOOLS = "tools"
+ACTION_PLAY = "play"
+ACTION_SOURCES = "sources"
