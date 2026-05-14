@@ -1,16 +1,13 @@
 import xbmcgui
 
 from resources.lib.constants import ACTION_PLAY
+from resources.lib.models.media_item import from_params
 
 
 def show_sources(nav, addon, core, log, params):
     from resources.lib.providers.manager import ProviderManager
 
-    item = {
-        "media_type": params.get("media_type", "movie"),
-        "title": params.get("title", "Unknown Title"),
-        "tmdb_id": params.get("tmdb_id", ""),
-    }
+    item = from_params(params)
 
     manager = ProviderManager(addon=addon, core=core, log=log)
     sources = manager.search_sources(item)

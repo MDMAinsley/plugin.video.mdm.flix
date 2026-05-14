@@ -6,6 +6,7 @@ from resources.lib.constants import (
 
 from resources.lib.providers.mdm_link import MDMLinkProvider
 from resources.lib.providers.cocoscrapers import CocoScrapersProvider
+from resources.lib.models.source import normalise_sources
 
 
 class ProviderManager:
@@ -54,7 +55,13 @@ class ProviderManager:
         if self.log:
             self.log.info(f"Using provider: {provider.name}")
 
-        return provider.search_sources(item)
+        raw_sources = provider.search_sources(item)
+
+        return normalise_sources(
+            raw_sources,
+            fallback_provider_id=provider.provider_id,
+            fallback_provider_name=provider.name,
+        )
 
     def resolve_source(self, source):
         provider_id = source.get("provider_id")
