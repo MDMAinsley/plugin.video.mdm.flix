@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<settings>
+    <category label="General">
+        <setting id="scraper_provider"
+                 type="select"
+                 label="Scraper Provider"
+                 values="Auto|MDM Link|CocoScrapers"
+                 default="Auto" />
+    </category>
+</settings>

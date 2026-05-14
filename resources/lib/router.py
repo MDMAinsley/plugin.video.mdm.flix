@@ -1,6 +1,7 @@
 from urllib.parse import parse_qsl
 
-import xbmcplugin
+import xbmc
+import xbmcgui
 
 from resources.lib.constants import (
     ACTION_HOME,
@@ -8,6 +9,12 @@ from resources.lib.constants import (
     ACTION_TVSHOWS,
     ACTION_SEARCH,
     ACTION_TOOLS,
+    ACTION_SOURCES,
+    ACTION_PLAY,
+    ACTION_TEST_PLAYBACK,
+    ACTION_OPEN_SETTINGS,
+    ACTION_PROVIDER_SETTINGS,
+    ACTION_DIAGNOSTICS,
 )
 
 
@@ -51,6 +58,48 @@ class Router:
             from resources.lib.menus.tools import show
             show(nav, self.addon)
 
+        elif action == ACTION_SOURCES:
+            from resources.lib.playback.resolver import show_sources
+            show_sources(nav, self.addon, self.core, self.log, self.params)
+
+        elif action == ACTION_PLAY:
+            from resources.lib.playback.player import play_url
+            play_url(
+                self.params.get("url", ""),
+                self.params.get("label", "MDM Flix"),
+            )
+
+        elif action == ACTION_TEST_PLAYBACK:
+            from resources.lib.playback.player import play_test_stream
+            play_test_stream()
+
+        elif action == ACTION_OPEN_SETTINGS:
+            self.addon.openSettings()
+            nav.end()
+
+        elif action == ACTION_PROVIDER_SETTINGS:
+            self.addon.openSettings()
+            nav.end()
+
+        elif action == ACTION_DIAGNOSTICS:
+            xbmcgui.Dialog().notification(
+                "MDM Flix",
+                "Diagnostics not built yet.",
+                xbmcgui.NOTIFICATION_INFO,
+                3000,
+            )
+            nav.end()
+
         else:
-            from resources.lib.menus.home import show
-            show(nav)
+            if self.log:
+                self.log.warning(f"Unknown route: {action}")
+            else:
+                xbmc.log(f"[MDM Flix] Unknown route: {action}", xbmc.LOGWARNING)
+
+            xbmcgui.Dialog().notification(
+                "MDM Flix",
+                f"Unknown route: {action}",
+                xbmcgui.NOTIFICATION_WARNING,
+                3000,
+            )
+            nav.end()
