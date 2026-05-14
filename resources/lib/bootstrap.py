@@ -20,8 +20,8 @@ def run():
 
     if core:
         try:
-            log = core.logger.get_logger("plugin.video.mdm.flix")
-            log.info("MDM Flix bootstrap started")
+            log = core.logger
+            log.info("[plugin.video.mdm.flix] MDM Flix bootstrap started")
         except Exception:
             xbmc.log("[MDM Flix] Core loaded but logger failed", xbmc.LOGWARNING)
             log = None
