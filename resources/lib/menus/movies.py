@@ -1,8 +1,4 @@
-def show(nav):
-    nav.add_folder("Trending Movies", "movies_trending")
-    nav.add_folder("Popular Movies", "movies_popular")
-    nav.add_folder("Search Movies", "search_movies")
-    nav.end("movies")from resources.lib.constants import (
+from resources.lib.constants import (
     ACTION_MOVIES_TRENDING,
     ACTION_MOVIES_POPULAR,
     ACTION_SEARCH_MOVIES,
