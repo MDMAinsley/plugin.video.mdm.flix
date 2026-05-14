@@ -17,6 +17,19 @@ def play_url(url, label="MDM Flix"):
 
     item = xbmcgui.ListItem(label=label, path=url)
     item.setProperty("IsPlayable", "true")
+    item.setContentLookup(False)
+
+    lower_url = url.lower()
+
+    if ".m3u8" in lower_url:
+        item.setMimeType("application/vnd.apple.mpegurl")
+        item.setProperty("inputstream", "inputstream.adaptive")
+        item.setProperty("inputstream.adaptive.manifest_type", "hls")
+
+    elif ".mpd" in lower_url:
+        item.setMimeType("application/dash+xml")
+        item.setProperty("inputstream", "inputstream.adaptive")
+        item.setProperty("inputstream.adaptive.manifest_type", "mpd")
 
     xbmcplugin.setResolvedUrl(
         int(sys.argv[1]),
