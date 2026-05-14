@@ -15,6 +15,12 @@ from resources.lib.constants import (
     ACTION_OPEN_SETTINGS,
     ACTION_PROVIDER_SETTINGS,
     ACTION_DIAGNOSTICS,
+    ACTION_MOVIES_TRENDING,
+    ACTION_MOVIES_POPULAR,
+    ACTION_SEARCH_MOVIES,
+    ACTION_TV_TRENDING,
+    ACTION_TV_POPULAR,
+    ACTION_SEARCH_TV,
 )
 
 
@@ -89,6 +95,30 @@ class Router:
                 3000,
             )
             nav.end()
+
+        elif action == ACTION_MOVIES_TRENDING:
+            from resources.lib.menus.placeholders import show_movie_list
+            show_movie_list(nav, "Trending Movies")
+
+        elif action == ACTION_MOVIES_POPULAR:
+            from resources.lib.menus.placeholders import show_movie_list
+            show_movie_list(nav, "Popular Movies")
+
+        elif action == ACTION_SEARCH_MOVIES:
+            from resources.lib.menus.placeholders import show_search_placeholder
+            show_search_placeholder(nav, "Search Movies")
+
+        elif action == ACTION_TV_TRENDING:
+            from resources.lib.menus.placeholders import show_tv_list
+            show_tv_list(nav, "Trending TV Shows")
+
+        elif action == ACTION_TV_POPULAR:
+            from resources.lib.menus.placeholders import show_tv_list
+            show_tv_list(nav, "Popular TV Shows")
+
+        elif action == ACTION_SEARCH_TV:
+            from resources.lib.menus.placeholders import show_search_placeholder
+            show_search_placeholder(nav, "Search TV Shows")
 
         else:
             if self.log:

@@ -28,3 +28,9 @@ SETTING_PROVIDER = "scraper_provider"
 PROVIDER_AUTO = "auto"
 PROVIDER_MDM_LINK = "mdm_link"
 PROVIDER_COCOSCRAPERS = "cocoscrapers"
+
+
+
+CONTENT_MOVIES = "movies"
+CONTENT_TVSHOWS = "tvshows"
+CONTENT_VIDEOS = "videos"
