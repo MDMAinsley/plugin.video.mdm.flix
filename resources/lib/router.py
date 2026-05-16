@@ -81,11 +81,13 @@ class Router:
 
         elif action == ACTION_OPEN_SETTINGS:
             self.addon.openSettings()
-            nav.end()
+            import xbmcplugin
+            xbmcplugin.setResolvedUrl(self.handle, False, None)
 
         elif action == ACTION_PROVIDER_SETTINGS:
             self.addon.openSettings()
-            nav.end()
+            import xbmcplugin
+            xbmcplugin.setResolvedUrl(self.handle, False, None)
 
         elif action == ACTION_DIAGNOSTICS:
             xbmcgui.Dialog().notification(
