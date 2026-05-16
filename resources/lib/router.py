@@ -105,8 +105,8 @@ class Router:
             show_movie_list(nav, "Popular Movies")
 
         elif action == ACTION_SEARCH_MOVIES:
-            from resources.lib.menus.placeholders import show_search_placeholder
-            show_search_placeholder(nav, "Search Movies")
+            from resources.lib.menus.search_input import show_movie_search
+            show_movie_search(nav)
 
         elif action == ACTION_TV_TRENDING:
             from resources.lib.menus.placeholders import show_tv_list
@@ -117,8 +117,8 @@ class Router:
             show_tv_list(nav, "Popular TV Shows")
 
         elif action == ACTION_SEARCH_TV:
-            from resources.lib.menus.placeholders import show_search_placeholder
-            show_search_placeholder(nav, "Search TV Shows")
+            from resources.lib.menus.search_input import show_tv_search
+            show_tv_search(nav)
 
         else:
             if self.log:
