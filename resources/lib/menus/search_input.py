@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import xmbc
+import xbmc
 import xbmcgui
 
 from resources.lib.constants import ACTION_SOURCES
