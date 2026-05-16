@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+
+
 def build_media_item(
     media_type,
     title,
@@ -7,6 +10,16 @@ def build_media_item(
     year=None,
     season=None,
     episode=None,
+    plot=None,
+    runtime=None,
+    rating=None,
+    votes=None,
+    premiered=None,
+    genre=None,
+    poster=None,
+    fanart=None,
+    thumb=None,
+    clearlogo=None,
     extra=None,
 ):
     return {
@@ -18,6 +31,18 @@ def build_media_item(
         "year": year or "",
         "season": season or "",
         "episode": episode or "",
+        "plot": plot or "",
+        "runtime": runtime or "",
+        "rating": rating or "",
+        "votes": votes or "",
+        "premiered": premiered or "",
+        "genre": genre or "",
+        "artwork": {
+            "poster": poster or "",
+            "fanart": fanart or "",
+            "thumb": thumb or poster or "",
+            "clearlogo": clearlogo or "",
+        },
         "extra": extra or {},
     }
 
@@ -32,4 +57,14 @@ def from_params(params):
         year=params.get("year", ""),
         season=params.get("season", ""),
         episode=params.get("episode", ""),
+        plot=params.get("plot", ""),
+        runtime=params.get("runtime", ""),
+        rating=params.get("rating", ""),
+        votes=params.get("votes", ""),
+        premiered=params.get("premiered", ""),
+        genre=params.get("genre", ""),
+        poster=params.get("poster", ""),
+        fanart=params.get("fanart", ""),
+        thumb=params.get("thumb", ""),
+        clearlogo=params.get("clearlogo", ""),
     )

@@ -3,8 +3,7 @@ from urllib.parse import urlencode
 import xbmcgui
 import xbmcplugin
 
-from resources.lib.constants import ADDON_ID
-
+from resources.lib.metadata.listitem import create_folder_item, create_playable_item
 
 class Navigator:
     def __init__(self, handle, base_url):
@@ -19,13 +18,7 @@ class Navigator:
         params["action"] = action
 
         url = self.build_url(**params)
-
-        item = xbmcgui.ListItem(label=label)
-        item.setArt({
-            "icon": icon or "DefaultFolder.png",
-            "thumb": icon or "DefaultFolder.png",
-            "fanart": fanart or "",
-        })
+        item = create_folder_item(label, icon, fanart)
 
         xbmcplugin.addDirectoryItem(
             handle=self.handle,
@@ -34,19 +27,12 @@ class Navigator:
             isFolder=True,
         )
 
-    def add_playable(self, label, action, params=None, icon=None, fanart=None):
+    def add_playable(self, label, action, params=None, artwork=None, info=None):
         params = params or {}
         params["action"] = action
 
         url = self.build_url(**params)
-
-        item = xbmcgui.ListItem(label=label)
-        item.setProperty("IsPlayable", "true")
-        item.setArt({
-            "icon": icon or "DefaultVideo.png",
-            "thumb": icon or "DefaultVideo.png",
-            "fanart": fanart or "",
-        })
+        item = create_playable_item(label, artwork=artwork, info=info)
 
         xbmcplugin.addDirectoryItem(
             handle=self.handle,
