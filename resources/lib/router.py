@@ -111,7 +111,7 @@ class Router:
 
         elif action == ACTION_SEARCH_MOVIES:
             from resources.lib.menus.search_input import show_movie_search
-            show_movie_search(nav)
+            show_movie_search(nav, self.addon)
 
         elif action == ACTION_TV_TRENDING:
             from resources.lib.menus.placeholders import show_tv_list

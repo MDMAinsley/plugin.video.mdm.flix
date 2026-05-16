@@ -3,7 +3,8 @@
 import xbmc
 import xbmcgui
 
-from resources.lib.constants import ACTION_SOURCES
+from resources.lib.constants import ACTION_SOURCES, ACTION_AUTOPLAY, PLAYBACK_MODE_AUTOPLAY
+from resources.lib.playback.selection import get_playback_mode
 from resources.lib.metadata.artwork import build_artwork
 from resources.lib.metadata.infolabels import build_video_info
 
@@ -18,7 +19,7 @@ def ask_search_query(heading):
     return keyboard.getText().strip()
 
 
-def show_movie_search(nav):
+def show_movie_search(nav, addon=None):
     query = ask_search_query("Search Movies")
 
     if not query:
@@ -40,22 +41,38 @@ def show_movie_search(nav):
         rating=7.5,
     )
 
-    nav.add_folder(
-        f"Search Result: {query}",
-        ACTION_SOURCES,
-        params={
-            "media_type": "movie",
-            "title": query,
-            "tmdb_id": "0",
-            "year": "2026",
-            "plot": f"Temporary search result for movie query: {query}",
-            "runtime": "600",
-            "rating": "7.5",
-            "genre": "Search Test",
-        },
-        artwork=artwork,
-        info=info,
-    )
+    params = {
+        "media_type": "movie",
+        "title": query,
+        "tmdb_id": "0",
+        "year": "2026",
+        "plot": f"Temporary search result for movie query: {query}",
+        "runtime": "600",
+        "rating": "7.5",
+        "genre": "Search Test",
+    }
+
+    action = ACTION_SOURCES
+
+    if addon and get_playback_mode(addon) == PLAYBACK_MODE_AUTOPLAY:
+        action = ACTION_AUTOPLAY
+
+    if action == ACTION_AUTOPLAY:
+        nav.add_playable(
+            f"Search Result: {query}",
+            action,
+            params=params,
+            artwork=artwork,
+            info=info,
+        )
+    else:
+        nav.add_folder(
+            f"Search Result: {query}",
+            action,
+            params=params,
+            artwork=artwork,
+            info=info,
+        )
 
     nav.end("movies")
 
