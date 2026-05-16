@@ -43,6 +43,20 @@ class Navigator:
             isFolder=False,
         )
 
+    def add_action(self, label, action, params=None, artwork=None, info=None):
+        params = params or {}
+        params["action"] = action
+
+        url = self.build_url(**params)
+        item = create_folder_item(label, artwork=artwork, info=info)
+
+        xbmcplugin.addDirectoryItem(
+            handle=self.handle,
+            url=url,
+            listitem=item,
+            isFolder=False,
+        )
+
     def end(self, content_type=None):
         if content_type:
             xbmcplugin.setContent(self.handle, content_type)
