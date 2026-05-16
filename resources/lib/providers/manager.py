@@ -33,10 +33,14 @@ class ProviderManager:
         cocoscrapers = CocoScrapersProvider(core=self.core, log=self.log)
 
         if selected == PROVIDER_MDM_LINK:
-            return mdm_link
+            if mdm_link.is_available():
+                return mdm_link
+            return None
 
         if selected == PROVIDER_COCOSCRAPERS:
-            return cocoscrapers
+            if cocoscrapers.is_available():
+                return cocoscrapers
+            return None
 
         # Auto mode.
         if mdm_link.is_available():
@@ -45,12 +49,15 @@ class ProviderManager:
         if cocoscrapers.is_available():
             return cocoscrapers
 
-        # Temporary development fallback.
-        # This lets us test the architecture before script.mdm.link exists properly.
-        return mdm_link
+        return None
 
     def search_sources(self, item):
         provider = self.get_provider()
+
+        if not provider:
+            if self.log:
+                self.log.warning("No scraper provider available")
+            return []
 
         if self.log:
             self.log.info(f"Using provider: {provider.name}")
@@ -66,4 +73,8 @@ class ProviderManager:
     def resolve_source(self, source):
         provider_id = source.get("provider_id")
         provider = self.get_provider()
+        if not provider:
+            if self.log:
+                self.log.warning("No scraper provider available")
+            return None
         return provider.resolve_source(source)
