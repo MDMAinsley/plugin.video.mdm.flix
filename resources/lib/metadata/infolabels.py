@@ -30,7 +30,7 @@ def build_video_info(
         "genre": genre,
         "rating": rating,
         "votes": votes,
-        "runtime": runtime or duration,
+        "duration": runtime or duration,
         "premiered": premiered,
         "studio": studio,
         "mpaa": mpaa,

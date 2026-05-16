@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import xmbc
 import xbmcgui
 
 from resources.lib.constants import ACTION_SOURCES
@@ -8,7 +9,7 @@ from resources.lib.metadata.infolabels import build_video_info
 
 
 def ask_search_query(heading):
-    keyboard = xbmcgui.Keyboard("", heading, False)
+    keyboard = xbmc.Keyboard("", heading, False)
     keyboard.doModal()
 
     if not keyboard.isConfirmed():
