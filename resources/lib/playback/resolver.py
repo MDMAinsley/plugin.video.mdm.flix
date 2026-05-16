@@ -2,6 +2,7 @@ import xbmcgui
 
 from resources.lib.constants import ACTION_PLAY
 from resources.lib.models.media_item import from_params
+from resources.lib.session import store_sources
 
 
 def show_sources(nav, addon, core, log, params):
@@ -22,18 +23,19 @@ def show_sources(nav, addon, core, log, params):
         nav.end()
         return
 
-    for index, source in enumerate(sources):
+    store_sources(sources)
+
+    for source in sources:
+        source_id = source.get("source_id", "")
         label = source.get("label", "Unknown Source")
         quality = source.get("quality", "Unknown")
-        provider = source.get("provider", "Unknown Provider")
-        url = source.get("url", "")
+        provider = source.get("provider_name", "Unknown Provider")
 
         nav.add_playable(
             f"{label} [{quality}] - {provider}",
             ACTION_PLAY,
             params={
-                "source_index": str(index),
-                "url": url,
+                "source_id": source_id,
                 "label": label,
             },
         )

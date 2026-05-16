@@ -1,7 +1,7 @@
 import sys
-
 import xbmcgui
 import xbmcplugin
+from resources.lib.session import get_source
 
 
 def play_url(url, label="MDM Flix"):
@@ -36,6 +36,22 @@ def play_url(url, label="MDM Flix"):
         True,
         item,
     )
+
+
+def play_source(source_id, label="MDM Flix"):
+    source = get_source(source_id)
+
+    if not source:
+        xbmcgui.Dialog().notification(
+            "MDM Flix",
+            "Source session expired. Open sources again.",
+            xbmcgui.NOTIFICATION_ERROR,
+            3000,
+        )
+        xbmcplugin.setResolvedUrl(int(sys.argv[1]), False, xbmcgui.ListItem())
+        return
+
+    play_url(source.get("url", ""), label)
 
 
 def play_test_stream():

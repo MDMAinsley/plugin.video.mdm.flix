@@ -69,9 +69,9 @@ class Router:
             show_sources(nav, self.addon, self.core, self.log, self.params)
 
         elif action == ACTION_PLAY:
-            from resources.lib.playback.player import play_url
-            play_url(
-                self.params.get("url", ""),
+            from resources.lib.playback.player import play_source
+            play_source(
+                self.params.get("source_id", ""),
                 self.params.get("label", "MDM Flix"),
             )
 
