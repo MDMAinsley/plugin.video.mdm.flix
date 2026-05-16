@@ -1,9 +1,11 @@
+# -*- coding: utf-8 -*-
+
 from urllib.parse import urlencode
 
-import xbmcgui
 import xbmcplugin
 
 from resources.lib.metadata.listitem import create_folder_item, create_playable_item
+
 
 class Navigator:
     def __init__(self, handle, base_url):
@@ -13,12 +15,12 @@ class Navigator:
     def build_url(self, **params):
         return f"{self.base_url}?{urlencode(params)}"
 
-    def add_folder(self, label, action, params=None, icon=None, fanart=None):
+    def add_folder(self, label, action, params=None, artwork=None, info=None):
         params = params or {}
         params["action"] = action
 
         url = self.build_url(**params)
-        item = create_folder_item(label, icon, fanart)
+        item = create_folder_item(label, artwork=artwork, info=info)
 
         xbmcplugin.addDirectoryItem(
             handle=self.handle,
