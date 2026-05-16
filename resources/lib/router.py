@@ -11,6 +11,7 @@ from resources.lib.constants import (
     ACTION_TOOLS,
     ACTION_SOURCES,
     ACTION_PLAY,
+    ACTION_AUTOPLAY,
     ACTION_TEST_PLAYBACK,
     ACTION_OPEN_SETTINGS,
     ACTION_PROVIDER_SETTINGS,
@@ -75,6 +76,10 @@ class Router:
                 self.params.get("label", "MDM Flix"),
             )
 
+        elif action == ACTION_AUTOPLAY:
+            from resources.lib.playback.resolver import autoplay
+            autoplay(nav, self.addon, self.core, self.log, self.params)
+
         elif action == ACTION_TEST_PLAYBACK:
             from resources.lib.playback.player import play_test_stream
             play_test_stream()
@@ -98,11 +103,11 @@ class Router:
 
         elif action == ACTION_MOVIES_TRENDING:
             from resources.lib.menus.placeholders import show_movie_list
-            show_movie_list(nav, "Trending Movies")
+            show_movie_list(nav, "Trending Movies", self.addon)
 
         elif action == ACTION_MOVIES_POPULAR:
             from resources.lib.menus.placeholders import show_movie_list
-            show_movie_list(nav, "Popular Movies")
+            show_movie_list(nav, "Popular Movies", self.addon)
 
         elif action == ACTION_SEARCH_MOVIES:
             from resources.lib.menus.search_input import show_movie_search

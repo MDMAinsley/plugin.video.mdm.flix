@@ -6,6 +6,7 @@ ACTION_MOVIES = "movies"
 ACTION_TVSHOWS = "tvshows"
 ACTION_SEARCH = "search"
 ACTION_TOOLS = "tools"
+ACTION_AUTOPLAY = "autoplay"
 
 ACTION_MOVIES_TRENDING = "movies_trending"
 ACTION_MOVIES_POPULAR = "movies_popular"

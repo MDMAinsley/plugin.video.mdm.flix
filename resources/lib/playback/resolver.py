@@ -67,3 +67,39 @@ def show_sources(nav, addon, core, log, params):
         )
 
     nav.end("videos")
+
+def autoplay(nav, addon, core, log, params):
+    from resources.lib.providers.manager import ProviderManager
+
+    item = from_params(params)
+
+    manager = ProviderManager(addon=addon, core=core, log=log)
+    sources = manager.search_sources(item)
+    sources = sort_sources(sources)
+
+    if not sources:
+        xbmcgui.Dialog().notification(
+            "MDM Flix",
+            "No sources found.",
+            xbmcgui.NOTIFICATION_WARNING,
+            3000,
+        )
+        return
+
+    store_sources(sources)
+
+    best = pick_best_source(sources)
+
+    if not best:
+        xbmcgui.Dialog().notification(
+            "MDM Flix",
+            "No playable source found.",
+            xbmcgui.NOTIFICATION_WARNING,
+            3000,
+        )
+        return
+
+    if log:
+        log.info(f"Autoplay selected source: {best.get('label')}")
+
+    play_source(best.get("source_id", ""), best.get("label", "MDM Flix"))
