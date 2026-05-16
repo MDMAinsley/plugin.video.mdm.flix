@@ -103,3 +103,4 @@ def autoplay(nav, addon, core, log, params):
         log.info(f"Autoplay selected source: {best.get('label')}")
 
     play_source(best.get("source_id", ""), best.get("label", "MDM Flix"))
+    return

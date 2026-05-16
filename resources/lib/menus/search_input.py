@@ -58,7 +58,7 @@ def show_movie_search(nav, addon=None):
         action = ACTION_AUTOPLAY
 
     if action == ACTION_AUTOPLAY:
-        nav.add_playable(
+        nav.add_action(
             f"Search Result: {query}",
             action,
             params=params,
