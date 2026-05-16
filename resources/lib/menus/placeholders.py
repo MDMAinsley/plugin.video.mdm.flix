@@ -24,12 +24,7 @@ def show_movie_list(nav, title, addon=None):
         rating=7.5,
     )
 
-    action = ACTION_SOURCES
-
-    if addon and get_playback_mode(addon) == PLAYBACK_MODE_AUTOPLAY:
-        action = ACTION_AUTOPLAY
-
-        params = {
+    params = {
         "media_type": "movie",
         "title": "MDM Test Movie",
         "tmdb_id": "0",
@@ -39,6 +34,11 @@ def show_movie_list(nav, title, addon=None):
         "rating": "7.5",
         "genre": "Test",
     }
+
+    action = ACTION_SOURCES
+
+    if addon and get_playback_mode(addon) == PLAYBACK_MODE_AUTOPLAY:
+        action = ACTION_AUTOPLAY
 
     if action == ACTION_AUTOPLAY:
         nav.add_playable(
