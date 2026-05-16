@@ -6,5 +6,10 @@
                  label="Scraper Provider"
                  values="Auto|MDM Link|CocoScrapers"
                  default="Auto" />
+		<setting id="playback_mode"
+				 type="select"
+				 label="Playback Mode"
+				 values="Source Select|Autoplay"
+				 default="Source Select" />
     </category>
 </settings>

@@ -24,12 +24,14 @@ ACTION_PROVIDER_SETTINGS = "provider_settings"
 ACTION_DIAGNOSTICS = "diagnostics"
 
 SETTING_PROVIDER = "scraper_provider"
+SETTING_PLAYBACK_MODE = "playback_mode"
+
+PLAYBACK_MODE_SOURCE_SELECT = "source_select"
+PLAYBACK_MODE_AUTOPLAY = "autoplay"
 
 PROVIDER_AUTO = "auto"
 PROVIDER_MDM_LINK = "mdm_link"
 PROVIDER_COCOSCRAPERS = "cocoscrapers"
-
-
 
 CONTENT_MOVIES = "movies"
 CONTENT_TVSHOWS = "tvshows"
