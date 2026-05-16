@@ -102,5 +102,6 @@ def autoplay(nav, addon, core, log, params):
     if log:
         log.info(f"Autoplay selected source: {best.get('label')}")
 
-    play_source(best.get("source_id", ""), best.get("label", "MDM Flix"))
+    from resources.lib.playback.player import direct_play_source
+    direct_play_source(best.get("source_id", ""), best.get("label", "MDM Flix"))
     return

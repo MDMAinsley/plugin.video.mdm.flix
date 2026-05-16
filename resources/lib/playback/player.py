@@ -1,4 +1,5 @@
 import sys
+import xbmc
 import xbmcgui
 import xbmcplugin
 from resources.lib.session import get_source
@@ -52,6 +53,49 @@ def play_source(source_id, label="MDM Flix"):
         return
 
     play_url(source.get("url", ""), label)
+
+def direct_play_url(url, label="MDM Flix"):
+    if not url:
+        xbmcgui.Dialog().notification(
+            "MDM Flix",
+            "No playable URL found.",
+            xbmcgui.NOTIFICATION_ERROR,
+            3000,
+        )
+        return
+
+    item = xbmcgui.ListItem(label=label, path=url)
+    item.setProperty("IsPlayable", "true")
+    item.setContentLookup(False)
+
+    lower_url = url.lower()
+
+    if ".m3u8" in lower_url:
+        item.setMimeType("application/vnd.apple.mpegurl")
+        item.setProperty("inputstream", "inputstream.adaptive")
+        item.setProperty("inputstream.adaptive.manifest_type", "hls")
+
+    elif ".mpd" in lower_url:
+        item.setMimeType("application/dash+xml")
+        item.setProperty("inputstream", "inputstream.adaptive")
+        item.setProperty("inputstream.adaptive.manifest_type", "mpd")
+
+    xbmc.Player().play(url, item)
+
+
+def direct_play_source(source_id, label="MDM Flix"):
+    source = get_source(source_id)
+
+    if not source:
+        xbmcgui.Dialog().notification(
+            "MDM Flix",
+            "Source session expired. Open sources again.",
+            xbmcgui.NOTIFICATION_ERROR,
+            3000,
+        )
+        return
+
+    direct_play_url(source.get("url", ""), label)
 
 
 def play_test_stream():
