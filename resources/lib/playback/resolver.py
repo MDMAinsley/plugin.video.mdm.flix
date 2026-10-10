@@ -11,9 +11,7 @@ from resources.lib.session import store_sources, get_source
 
 
 def configured(addon):
-    client=AllDebrid(addon)
-    if not client.enabled: raise PlaybackError('Enable AllDebrid in settings and authorise it in Tools.')
-    if not client.key: raise PlaybackError('Authorise AllDebrid in Tools before searching sources.')
+    ProviderManager(addon).configured()
 
 
 def search(addon,core,log,params):
@@ -26,14 +24,16 @@ def show_sources(nav,addon,core,log,params):
     try:
         rows=search(addon,core,log,params)
         if not rows:
-            xbmcgui.Dialog().ok('MDM Flix','No sources found. Try another title or check enabled CocoScrapers providers.')
+            xbmcgui.Dialog().ok('MDM Flix','No sources found. Try another title or check enabled providers and source mode.')
             nav.end(); return
         saved=store_sources(rows)
         for source_id,source in saved.items():
             size=source.get('size')
             size=' · {:.2f} GB'.format(size) if type(size) in (int,float) and size>0 else ''
-            label='[AllDebrid · unchecked] {}{} · {}'.format(source.get('quality','Unknown'),size,source['label'])
-            nav.add_playable(label,'play',params={'source_id':source_id},info={'plot':'{}\nAllDebrid availability is checked when selected.'.format(source['provider_name'])})
+            access='AllDebrid · unchecked' if source.get('debrid') else 'Free · direct'
+            label='[{}] {}{} · {}'.format(access,source.get('quality','Unknown'),size,source['label'])
+            note='AllDebrid availability is checked when selected.' if source.get('debrid') else 'Direct free source; availability depends on the source host.'
+            nav.add_playable(label,'play',params={'source_id':source_id},info={'plot':'{}\n{}'.format(source['provider_name'],note)})
         nav.end('videos')
     except Cancelled:
         nav.end()
@@ -47,7 +47,7 @@ def show_sources(nav,addon,core,log,params):
 
 
 def resolve(source,addon,core,log):
-    progress=xbmcgui.DialogProgress(); progress.create('MDM Flix','Resolving the selected source with AllDebrid…')
+    progress=xbmcgui.DialogProgress(); progress.create('MDM Flix','Resolving the selected source…')
     monitor=xbmc.Monitor()
     try:
         def choose(names):
@@ -63,7 +63,6 @@ def resolve(source,addon,core,log):
 
 def play_source(source_id,addon,core,log):
     try:
-        configured(addon)
         source=get_source(source_id)
         if not source: raise PlaybackError('Source session expired or was replaced. Open sources again.')
         url=resolve(source,addon,core,log)
@@ -80,7 +79,7 @@ def play_source(source_id,addon,core,log):
 def autoplay(nav,addon,core,log,params):
     try:
         rows=search(addon,core,log,params)
-        if not rows: raise PlaybackError('No sources found. Try another title or check CocoScrapers settings.')
+        if not rows: raise PlaybackError('No sources found. Try another title or check provider settings/source mode.')
         # Resolve only the top candidate, so autoplay never creates bulk transfers.
         url=resolve(rows[0],addon,core,log)
         play_url(url,rows[0]['label'])

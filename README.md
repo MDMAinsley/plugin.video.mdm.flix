@@ -1,13 +1,15 @@
-# MDM Flix 0.2.0
+# MDM Flix 0.3.0
 
-This development batch adds CocoScrapers torrent sources and AllDebrid playback to the TMDB catalogue.
+This batch connects the TMDB catalogue to MDM Link 0.1.0's real source API. Link supports Free, Debrid and Combined modes, Internet Archive direct files, Torrentio torrent metadata and three configurable stream-provider slots. See MDM Link's README for coverage and limitations. Core 1.0.0 and Link 0.1.0 are required dependencies.
 
-## Playback setup
+Select MDM Link explicitly in Flix's General settings to use Link. Auto keeps the existing CocoScrapers behavior. Provider Settings and AllDebrid Tools actions follow the selected provider. Link imports existing Flix authorisation once inside Kodi; later account settings/disconnect remain separate. Free/direct playback does not require Flix AllDebrid credentials. Source labels distinguish Free/direct from AllDebrid/unchecked.
+
+## CocoScrapers playback setup
 
 Install/enable CocoScrapers 1.0.39 or later from its own repository. This is an optional
 dependency: browsing works without it. Flix does not bundle or modify third-party scraper code.
 Keep Scraper Provider on Auto or CocoScrapers. Tools → Provider Settings opens CocoScrapers;
-only enabled torrent providers are searched. MDM Link integration remains future work.
+only enabled CocoScrapers torrent providers are searched.
 
 Tools → Authorise AllDebrid displays a PIN. Visit https://alldebrid.com/pin/ on your browser,
 enter it, and keep the Kodi dialog open. Alternatively enter your own API key in Flix settings.
@@ -16,7 +18,7 @@ Disconnect removes the local key and source session; revoke keys separately in A
 Account identifiers, email addresses and keys are not shown in diagnostics.
 
 Open a movie or episode's information folder, close the information dialog, then choose
-Find playback sources. Pick an AllDebrid result to resolve and play. In Autoplay mode the
+Find playback sources. Pick a result to resolve and play; Link Free mode also supplies direct video. In Autoplay mode the
 folder has a Play (Autoplay) item; it searches and resolves the top result only. If it fails,
 choose Source Select and try another candidate. Debrid sources sort before free sources.
 
@@ -26,11 +28,12 @@ An uncached source can start an AllDebrid transfer; cancelling/timeout returns c
 does not delete that account transfer. Manage transfers in AllDebrid. Preparation is bounded
 to 60 seconds per stage; retry the same result later when ready. Polls wait at least 5 seconds.
 
-Search is bounded to 45 seconds with at most six daemon workers; individual third-party
+CocoScrapers search is bounded to 45 seconds with at most six daemon workers; Link search uses 30 seconds and at most five workers; individual third-party
 requests already in flight cannot be forcibly stopped, but no further work starts on cancel.
 Sessions expire after 30 minutes; a newer source search replaces the previous list.
-Sessions contain original torrent candidates and public title metadata, not API keys or
-resolved signed URLs. Kodi settings mask the key but do not encrypt it on disk.
+Sessions contain original candidates and public title metadata, not local API keys or
+AllDebrid-resolved signed URLs. Original direct-provider URLs can contain signed access
+parameters and remain in the local session until replaced or cleared. Kodi settings mask the key but do not encrypt it on disk.
 
 Torrent folders are flattened, non-video/sample/trailer files excluded, and episode numbers
 matched explicitly (including season 0). Multiple matching files prompt for selection.

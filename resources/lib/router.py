@@ -87,14 +87,30 @@ class Router:
 
         elif action == ACTION_PROVIDER_SETTINGS:
             from resources.lib.kodi_addons import get_addon
-            provider = get_addon("script.module.cocoscrapers")
+            link=self.addon.getSetting('scraper_provider')=='MDM Link'
+            provider = get_addon('script.mdm.link' if link else 'script.module.cocoscrapers')
             if provider:
+                if link:
+                    from mdmlink.api import migrate
+                    migrate(provider,self.addon)
                 provider.openSettings()
             else:
-                xbmcgui.Dialog().ok("MDM Flix", "Install and enable CocoScrapers to open its provider settings.")
+                xbmcgui.Dialog().ok('MDM Flix','Install and enable the selected provider to open its settings.')
             return
 
         elif action in ("alldebrid_authorise", "alldebrid_check", "alldebrid_disconnect"):
+            if self.addon.getSetting('scraper_provider')=='MDM Link':
+                from resources.lib.kodi_addons import get_addon
+                from mdmlink.api import migrate
+                from mdmlink.ui import authorise, check_account, disconnect
+                target=get_addon('script.mdm.link')
+                if not target:
+                    xbmcgui.Dialog().ok('MDM Flix','Enable MDM Link before authorising its account.')
+                    return
+                migrate(target,self.addon)
+                handlers={'alldebrid_authorise':authorise,'alldebrid_check':check_account,'alldebrid_disconnect':disconnect}
+                handlers[action](target)
+                return
             from resources.lib.playback.account import authorise, check_account, disconnect
             handlers = {"alldebrid_authorise": authorise, "alldebrid_check": check_account, "alldebrid_disconnect": disconnect}
             handlers[action](self.addon)

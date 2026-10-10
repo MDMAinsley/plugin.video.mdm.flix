@@ -10,12 +10,17 @@ def diagnostics(nav, addon, core):
     from resources.lib.playback.alldebrid import AllDebrid
     debrid = AllDebrid(addon)
     coco = get_addon("script.module.cocoscrapers")
-    text = "Flix: {}\nCore: {}\nTMDB credentials: {}\nMetadata language: {}\nCocoScrapers: {}\nProvider setting: {}\nPlayback mode: {}\nAllDebrid enabled: {}\nAllDebrid credentials: {}\n\nAvailability: checked on selection\nSource session expiry: 30 minutes\nSearch limit: 45 seconds\nResolve preparation limit: 60 seconds per stage\nMDM Link / free sources: planned next".format(
+    text = "Flix: {}\nCore: {}\nTMDB credentials: {}\nMetadata language: {}\nCocoScrapers: {}\nProvider setting: {}\nPlayback mode: {}\nAllDebrid enabled: {}\nAllDebrid credentials: {}\n\nAvailability: checked on selection\nSource session expiry: 30 minutes\nSearch limit: 45 seconds\nResolve preparation limit: 60 seconds per stage\nMDM Link: available through Provider Settings".format(
         addon.getAddonInfo("version"), getattr(core, "__version__", "unavailable"),
         "configured" if client.configured else "missing", client.language,
         coco.getAddonInfo("version") if coco else "missing / disabled",
         addon.getSetting("scraper_provider") or "Auto", addon.getSetting("playback_mode") or "Source Select",
         "yes" if debrid.enabled else "no", "configured" if debrid.key else "missing")
+    link = get_addon('script.mdm.link')
+    if link:
+        from mdmlink.api import status
+        import json
+        text += '\n\nMDM Link status (no credentials/addresses):\n' + json.dumps(status(link), indent=2)
     xbmcgui.Dialog().textviewer("MDM Flix diagnostics", text)
     nav.end()
 

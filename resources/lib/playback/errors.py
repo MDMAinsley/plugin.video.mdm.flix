@@ -1,6 +1,1 @@
-class PlaybackError(Exception):
-    """A user-safe failure message; never include tokens or signed links."""
-
-
-class Cancelled(PlaybackError):
-    pass
+from mdmlink.errors import PlaybackError, Cancelled

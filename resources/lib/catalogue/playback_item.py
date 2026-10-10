@@ -16,7 +16,9 @@ def load(addon, core, params):
     external = data.get('external_ids')
     imdb = external.get('imdb_id') if isinstance(external,dict) else data.get('imdb_id')
     if not isinstance(imdb,str) or not re.fullmatch(r'tt[0-9]+',imdb):
-        raise PlaybackError('TMDB has no IMDb ID for this title. CocoScrapers cannot search it yet.')
+        if addon.getSetting('scraper_provider')!='MDM Link':
+            raise PlaybackError('TMDB has no IMDb ID for this title. CocoScrapers cannot search it yet.')
+        imdb=None
     date = data.get('first_air_date' if is_episode else 'release_date') or ''
     year = int(date[:4]) if isinstance(date,str) and date[:4].isdigit() else None
     title = data.get('name' if is_episode else 'title')
