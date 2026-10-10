@@ -1,4 +1,4 @@
-from resources.lib import device_policy
+from resources.lib import device_policy,connection_policy
 from resources.lib.providers.cocoscrapers import CocoScrapersProvider
 from resources.lib.providers.mdm_link import MDMLinkProvider
 from resources.lib.models.source import normalise_sources
@@ -18,7 +18,12 @@ class ProviderManager:
         if not provider.is_available(): raise PlaybackError('Install and enable CocoScrapers, then search again.')
         return provider
 
+    def preferences(self):
+        try:connection_policy.validate_settings(self.addon)
+        except ValueError as error:raise PlaybackError(str(error)) from None
+
     def configured(self):
+        self.preferences()
         if self.addon.getSetting('scraper_provider')=='MDM Link':
             self.get_provider().configured()
         else:
@@ -28,11 +33,13 @@ class ProviderManager:
             if not client.key: raise PlaybackError('Authorise AllDebrid in Tools before searching sources.')
 
     def search_sources(self, item):
+        self.preferences()
         provider=self.get_provider()
-        return device_policy.filter_rows(self.addon,normalise_sources(provider.search_sources(item),provider.provider_id,provider.name))
+        return connection_policy.select(self.addon,device_policy.filter_rows(self.addon,normalise_sources(provider.search_sources(item),provider.provider_id,provider.name)))
 
     def resolve_source(self, source, progress, monitor, choose):
-        if not device_policy.allows(self.addon,source):raise PlaybackError("This source exceeds your current quality limit or has hidden unknown quality. Search again or change Device settings.")
+        self.preferences()
+        if not device_policy.allows(self.addon,source) or not connection_policy.allows(self.addon,source):raise PlaybackError("This source is excluded by your current quality, file-size or connection preferences. Search again or change Device settings.")
         # Respect the original provider even when Auto/settings change.
         if source.get('provider_id')=='mdm_link':
             return MDMLinkProvider(self.addon,core=self.core,log=self.log).resolve_source(source,addon=self.addon,progress=progress,monitor=monitor,choose=choose)

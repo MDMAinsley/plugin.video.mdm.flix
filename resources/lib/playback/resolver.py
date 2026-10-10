@@ -1,5 +1,6 @@
 import xbmc
 import xbmcgui
+from resources.lib import connection_policy
 from resources.lib.catalogue.tmdb import CatalogueError
 from resources.lib.catalogue.playback_item import load
 from resources.lib.playback.alldebrid import AllDebrid
@@ -17,14 +18,14 @@ def configured(addon):
 def search(addon,core,log,params):
     configured(addon)
     item=load(addon,core,params)
-    return sort_sources(ProviderManager(addon,core,log).search_sources(item))
+    return sort_sources(ProviderManager(addon,core,log).search_sources(item),addon)
 
 
 def show_sources(nav,addon,core,log,params):
     try:
         rows=search(addon,core,log,params)
         if not rows:
-            xbmcgui.Dialog().ok('MDM Flix','No sources found. Try another title or check enabled providers and source mode.')
+            xbmcgui.Dialog().ok('MDM Flix','No sources remain. Check quality, file-size and connection preferences, enabled providers and source mode.')
             nav.end(); return
         saved=store_sources(rows)
         debrid=sum(bool(s.get('debrid')) for s in saved.values())
@@ -37,7 +38,7 @@ def show_sources(nav,addon,core,log,params):
         else:
             if debrid and addon.getSetting('scraper_provider')=='MDM Link':
                 xbmcgui.Dialog().notification('MDM Flix','{} AllDebrid sources; no free matches returned for this search.'.format(debrid),xbmcgui.NOTIFICATION_INFO,5000)
-            display_sources(nav,saved)
+            display_sources(nav,saved,addon)
     except Cancelled:
         nav.end()
     except (PlaybackError,CatalogueError) as failure:
@@ -49,13 +50,15 @@ def show_sources(nav,addon,core,log,params):
         nav.end()
 
 
-def display_sources(nav,saved):
+def display_sources(nav,saved,addon=None):
     for source_id,source in saved.items():
         size=source.get('size')
-        size=' · {:.2f} GB'.format(size) if type(size) in (int,float) and size>0 else ''
+        size=' · {:.2f} GiB'.format(size) if type(size) in (int,float) and size>0 else ''
         access='AllDebrid · unchecked' if source.get('debrid') else 'Free · direct'
         label='[{}] {}{} · {}'.format(access,source.get('quality','Unknown'),size,source['label'])
+        if addon is not None:label+=connection_policy.badge(addon,source)
         note='AllDebrid availability is checked when selected.' if source.get('debrid') else 'Direct free source; availability depends on the source host.'
+        if addon is not None:note+='\n'+connection_policy.note(addon,source)
         nav.add_playable(label,'play',params={'source_id':source_id},info={'plot':'{}\n{}'.format(source['provider_name'],note)})
     nav.end('videos')
 
@@ -66,8 +69,12 @@ def show_group(nav,params):
     if group not in ('all','free','debrid') or not saved:
         xbmcgui.Dialog().ok('MDM Flix','This source list expired or was replaced. Open sources again.')
         nav.end();return
+    import xbmcaddon
+    addon=xbmcaddon.Addon('plugin.video.mdm.flix')
+    ordered=sort_sources(list(saved.values()),addon)
+    saved={source['source_id']:source for source in ordered}
     rows={key:source for key,source in saved.items() if group=='all' or bool(source.get('debrid'))==(group=='debrid')}
-    display_sources(nav,rows)
+    display_sources(nav,rows,addon)
 
 
 def resolve(source,addon,core,log):
@@ -103,7 +110,7 @@ def play_source(source_id,addon,core,log):
 def autoplay(nav,addon,core,log,params):
     try:
         rows=search(addon,core,log,params)
-        if not rows: raise PlaybackError('No sources found. Try another title or check provider settings/source mode.')
+        if not rows: raise PlaybackError('No sources remain. Check source preferences, provider settings and source mode.')
         # Resolve only the top candidate, so autoplay never creates bulk transfers.
         url=resolve(rows[0],addon,core,log)
         play_url(url,rows[0]['label'])

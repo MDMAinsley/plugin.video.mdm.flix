@@ -1,5 +1,5 @@
 """Adapter for installed CocoScrapers sources(data, hostDict)."""
-from resources.lib import device_policy
+from resources.lib import device_policy,connection_policy
 import copy
 import hashlib
 import os
@@ -65,8 +65,8 @@ class CocoScrapersProvider(BaseProvider):
         return {'source_id':hashlib.sha256(url.encode()).hexdigest(), 'label':label[:240], 'url':url,
                 'provider_id':'cocoscrapers', 'provider_name':'CocoScrapers / '+name,
                 'quality':raw.get('quality') if isinstance(raw.get('quality'),str) else 'Unknown',
-                'size':raw.get('size',0), 'host':'torrent', 'debrid':True,
-                'extra':{'item':item, 'hash':match[1].lower(), 'scraper':name, 'availability':'unchecked'}}
+                'size':connection_policy.coco_size(raw.get('size')) or '', 'host':'torrent', 'debrid':True,
+                'extra':{'item':item, 'size_scope':'package' if raw.get('package') else 'file' if item.get('media_type')=='movie' or 'package' in raw else 'unknown', 'hash':match[1].lower(), 'scraper':name, 'availability':'unchecked'}}
 
     def search_sources(self, item):
         modules = self.modules()
@@ -98,7 +98,7 @@ class CocoScrapersProvider(BaseProvider):
                 completed+=1
                 for raw in rows if isinstance(rows,list) else []:
                     source=self.convert(raw,name,item)
-                    if source and device_policy.allows(self.addon,source) and source['extra']['hash'] not in seen:
+                    if source and device_policy.allows(self.addon,source) and connection_policy.allows(self.addon,source) and source['extra']['hash'] not in seen:
                         found.append(source); seen.add(source['extra']['hash'])
                 progress.update(int(100*completed/len(modules)), '{} providers finished · {} sources'.format(completed,len(found)))
             if completed<len(modules): xbmcgui.Dialog().notification('MDM Flix','Search timed out; showing completed provider results.',xbmcgui.NOTIFICATION_INFO,3000)

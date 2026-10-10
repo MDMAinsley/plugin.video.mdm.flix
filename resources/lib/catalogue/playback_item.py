@@ -36,4 +36,8 @@ def load(addon, core, params):
         episode_title=episode_data.get('name')
         episode_title=episode_title if isinstance(episode_title,str) and episode_title else 'Episode {}'.format(episode)
         item.update(tvshowtitle=title, title=episode_title, season=season,episode=episode)
+    minutes=(episode_data if is_episode else data).get('runtime')
+    if type(minutes) in (int,float) and 0<minutes<=1440:
+        item['duration_seconds']=minutes*60
+        item['runtime']=minutes*60
     return item

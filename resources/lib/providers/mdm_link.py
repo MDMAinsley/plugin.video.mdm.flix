@@ -35,4 +35,4 @@ class MDMLinkProvider:
 
     def resolve_source(self,source,addon=None,progress=None,monitor=None,choose=None):
         self.configured()
-        return api.resolve(self.addon,source,progress,monitor,choose)
+        return api.resolve(self.addon,source,progress,monitor,choose,policy_addon=addon)

@@ -1,6 +1,7 @@
 from resources.lib.constants import PLAYBACK_MODE_AUTOPLAY, PLAYBACK_MODE_SOURCE_SELECT
 from resources.lib.playback.files import web_url
 import re
+from resources.lib import connection_policy,device_policy
 
 
 def get_playback_mode(addon):
@@ -14,7 +15,8 @@ def usable(source):
     return isinstance(url,str) and (web_url(url) or magnet and bool(source.get('debrid')))
 
 
-def sort_sources(sources):
+def sort_sources(sources,addon=None):
+    if addon is not None:return connection_policy.select(addon,device_policy.filter_rows(addon,[s for s in sources or [] if usable(s)]))
     quality={'4K':500,'2160p':500,'1080p':400,'720p':300,'480p':200,'SD':100,'CAM':10,'Unknown':0}
     # Debrid priority is absolute, then sort by quality within each group.
     return sorted([s for s in sources or [] if usable(s)],key=lambda s:(bool(s.get('debrid')),quality.get(s.get('quality'),0)),reverse=True)
