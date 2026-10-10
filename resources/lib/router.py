@@ -66,8 +66,8 @@ class Router:
             show(nav, self.addon)
 
         elif action == ACTION_SOURCES:
-            from resources.lib.playback.resolver import show_sources
-            show_sources(nav, self.addon, self.core, self.log, self.params)
+            xbmcgui.Dialog().ok("MDM Flix", "Stream provider integration is not available yet. Use Tools → Test Playback for the demo stream.")
+            nav.end()
 
         elif action == ACTION_PLAY:
             from resources.lib.playback.player import play_source
@@ -77,8 +77,8 @@ class Router:
             )
 
         elif action == ACTION_AUTOPLAY:
-            from resources.lib.playback.resolver import autoplay
-            autoplay(nav, self.addon, self.core, self.log, self.params)
+            xbmcgui.Dialog().ok("MDM Flix", "Stream provider integration is not available yet. Use Tools → Test Playback for the demo stream.")
+            nav.end()
 
         elif action == ACTION_TEST_PLAYBACK:
             from resources.lib.playback.player import play_test_stream
@@ -93,37 +93,22 @@ class Router:
             return
 
         elif action == ACTION_DIAGNOSTICS:
-            xbmcgui.Dialog().notification(
-                "MDM Flix",
-                "Diagnostics not built yet.",
-                xbmcgui.NOTIFICATION_INFO,
-                3000,
-            )
-            nav.end()
+            from resources.lib.catalogue.tools import diagnostics
+            diagnostics(nav, self.addon, self.core)
 
-        elif action == ACTION_MOVIES_TRENDING:
-            from resources.lib.menus.placeholders import show_movie_list
-            show_movie_list(nav, "Trending Movies", self.addon)
+        elif action in ("about_tmdb", "tmdb_credit_notice"):
+            from resources.lib.catalogue.tools import about
+            about(nav)
 
-        elif action == ACTION_MOVIES_POPULAR:
-            from resources.lib.menus.placeholders import show_movie_list
-            show_movie_list(nav, "Popular Movies", self.addon)
-
-        elif action == ACTION_SEARCH_MOVIES:
-            from resources.lib.menus.search_input import show_movie_search
-            show_movie_search(nav, self.addon)
-
-        elif action == ACTION_TV_TRENDING:
-            from resources.lib.menus.placeholders import show_tv_list
-            show_tv_list(nav, "Trending TV Shows")
-
-        elif action == ACTION_TV_POPULAR:
-            from resources.lib.menus.placeholders import show_tv_list
-            show_tv_list(nav, "Popular TV Shows")
-
-        elif action == ACTION_SEARCH_TV:
-            from resources.lib.menus.search_input import show_tv_search
-            show_tv_search(nav)
+        elif action in (ACTION_MOVIES_TRENDING, ACTION_MOVIES_POPULAR,
+                        ACTION_SEARCH_MOVIES, ACTION_TV_TRENDING,
+                        ACTION_TV_POPULAR, ACTION_SEARCH_TV,
+                        "tv_seasons", "tv_episodes", "catalogue_details", "catalogue_info"):
+            from resources.lib.catalogue.browse import show
+            params = dict(self.params)
+            if action == "catalogue_info":
+                params["action"] = "catalogue_details"
+            show(nav, self.addon, self.core, params)
 
         else:
             if self.log:

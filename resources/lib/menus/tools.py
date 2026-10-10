@@ -11,4 +11,5 @@ def show(nav, addon):
     nav.add_action("Provider Settings", ACTION_PROVIDER_SETTINGS)
     nav.add_action("Diagnostics", ACTION_DIAGNOSTICS)
     nav.add_playable("Test Playback", ACTION_TEST_PLAYBACK)
+    nav.add_folder("About / TMDB credits", "about_tmdb")
     nav.end()

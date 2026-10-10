@@ -49,4 +49,12 @@ def apply_video_info(listitem, info):
     if not info:
         return
 
-    listitem.setInfo("video", info)
+    labels = dict(info)
+    unique_ids = labels.pop("uniqueid", None)
+    listitem.setInfo("video", labels)
+    if isinstance(unique_ids, dict):
+        # Keep identifiers in Kodi's dedicated field, not legacy setInfo labels.
+        if hasattr(listitem, "getVideoInfoTag"):
+            listitem.getVideoInfoTag().setUniqueIDs(unique_ids, "tmdb")
+        else:
+            listitem.setProperty("tmdb_id", unique_ids.get("tmdb", ""))

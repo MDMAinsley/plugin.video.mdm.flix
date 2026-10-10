@@ -16,7 +16,7 @@ class Navigator:
         return f"{self.base_url}?{urlencode(params)}"
 
     def add_folder(self, label, action, params=None, artwork=None, info=None):
-        params = params or {}
+        params = dict(params or {})
         params["action"] = action
 
         url = self.build_url(**params)
@@ -30,7 +30,7 @@ class Navigator:
         )
 
     def add_playable(self, label, action, params=None, artwork=None, info=None):
-        params = params or {}
+        params = dict(params or {})
         params["action"] = action
 
         url = self.build_url(**params)
@@ -44,7 +44,7 @@ class Navigator:
         )
 
     def add_action(self, label, action, params=None, artwork=None, info=None):
-        params = params or {}
+        params = dict(params or {})
         params["action"] = action
 
         url = self.build_url(**params)
