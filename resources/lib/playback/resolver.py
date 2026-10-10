@@ -1,107 +1,93 @@
-# -*- coding: utf-8 -*-
-
+import xbmc
 import xbmcgui
+from resources.lib.catalogue.tmdb import CatalogueError
+from resources.lib.catalogue.playback_item import load
+from resources.lib.playback.alldebrid import AllDebrid
+from resources.lib.playback.errors import PlaybackError, Cancelled
+from resources.lib.playback.selection import sort_sources
+from resources.lib.playback.player import play_url, failed
+from resources.lib.providers.manager import ProviderManager
+from resources.lib.session import store_sources, get_source
 
-from resources.lib.constants import ACTION_PLAY, PLAYBACK_MODE_AUTOPLAY
-from resources.lib.models.media_item import from_params
-from resources.lib.session import store_sources
-from resources.lib.playback.selection import get_playback_mode, sort_sources, pick_best_source
-from resources.lib.playback.player import play_source
+
+def configured(addon):
+    client=AllDebrid(addon)
+    if not client.enabled: raise PlaybackError('Enable AllDebrid in settings and authorise it in Tools.')
+    if not client.key: raise PlaybackError('Authorise AllDebrid in Tools before searching sources.')
 
 
-def show_sources(nav, addon, core, log, params):
-    from resources.lib.providers.manager import ProviderManager
+def search(addon,core,log,params):
+    configured(addon)
+    item=load(addon,core,params)
+    return sort_sources(ProviderManager(addon,core,log).search_sources(item))
 
-    item = from_params(params)
 
-    manager = ProviderManager(addon=addon, core=core, log=log)
-    sources = manager.search_sources(item)
-    sources = sort_sources(sources)
-
-    if not sources:
-        xbmcgui.Dialog().notification(
-            "MDM Flix",
-            "No sources found.",
-            xbmcgui.NOTIFICATION_WARNING,
-            3000,
-        )
+def show_sources(nav,addon,core,log,params):
+    try:
+        rows=search(addon,core,log,params)
+        if not rows:
+            xbmcgui.Dialog().ok('MDM Flix','No sources found. Try another title or check enabled CocoScrapers providers.')
+            nav.end(); return
+        saved=store_sources(rows)
+        for source_id,source in saved.items():
+            size=source.get('size')
+            size=' · {:.2f} GB'.format(size) if type(size) in (int,float) and size>0 else ''
+            label='[AllDebrid · unchecked] {}{} · {}'.format(source.get('quality','Unknown'),size,source['label'])
+            nav.add_playable(label,'play',params={'source_id':source_id},info={'plot':'{}\nAllDebrid availability is checked when selected.'.format(source['provider_name'])})
+        nav.end('videos')
+    except Cancelled:
         nav.end()
-        return
+    except (PlaybackError,CatalogueError) as failure:
+        xbmcgui.Dialog().ok('MDM Flix',str(failure))
+        nav.add_action('Open settings','open_settings'); nav.end()
+    except Exception:
+        if log: log.warning('Source search failed unexpectedly')
+        xbmcgui.Dialog().ok('MDM Flix','Source search failed. Check providers/settings and try again.')
+        nav.end()
 
-    store_sources(sources)
 
-    mode = get_playback_mode(addon)
+def resolve(source,addon,core,log):
+    progress=xbmcgui.DialogProgress(); progress.create('MDM Flix','Resolving the selected source with AllDebrid…')
+    monitor=xbmc.Monitor()
+    try:
+        def choose(names):
+            # Avoid modal selection being hidden behind the progress window.
+            progress.close()
+            choice=xbmcgui.Dialog().select('Choose matching video file',names)
+            if choice>=0: progress.create('MDM Flix','Resolving selected video…')
+            return choice
+        return ProviderManager(addon,core,log).resolve_source(source,progress,monitor,choose)
+    finally:
+        progress.close()
 
-    if mode == PLAYBACK_MODE_AUTOPLAY:
-        best = pick_best_source(sources)
 
-        if not best:
-            xbmcgui.Dialog().notification(
-                "MDM Flix",
-                "No playable source found.",
-                xbmcgui.NOTIFICATION_WARNING,
-                3000,
-            )
-            nav.end()
-            return
+def play_source(source_id,addon,core,log):
+    try:
+        configured(addon)
+        source=get_source(source_id)
+        if not source: raise PlaybackError('Source session expired or was replaced. Open sources again.')
+        url=resolve(source,addon,core,log)
+        play_url(url,source.get('label','MDM Flix'))
+    except Cancelled:
+        failed()
+    except (PlaybackError,CatalogueError) as failure:
+        xbmcgui.Dialog().ok('MDM Flix',str(failure)); failed()
+    except Exception:
+        if log: log.warning('Playback resolution failed unexpectedly')
+        xbmcgui.Dialog().ok('MDM Flix','Playback resolution failed. Search again or try another source.'); failed()
 
-        if log:
-            log.info(f"Autoplay selected source: {best.get('label')}")
 
-        play_source(best.get("source_id", ""), best.get("label", "MDM Flix"))
-        return
-
-    for source in sources:
-        source_id = source.get("source_id", "")
-        label = source.get("label", "Unknown Source")
-        quality = source.get("quality", "Unknown")
-        provider = source.get("provider_name", "Unknown Provider")
-
-        nav.add_playable(
-            f"{label} [{quality}] - {provider}",
-            ACTION_PLAY,
-            params={
-                "source_id": source_id,
-                "label": label,
-            },
-        )
-
-    nav.end("videos")
-
-def autoplay(nav, addon, core, log, params):
-    from resources.lib.providers.manager import ProviderManager
-
-    item = from_params(params)
-
-    manager = ProviderManager(addon=addon, core=core, log=log)
-    sources = manager.search_sources(item)
-    sources = sort_sources(sources)
-
-    if not sources:
-        xbmcgui.Dialog().notification(
-            "MDM Flix",
-            "No sources found.",
-            xbmcgui.NOTIFICATION_WARNING,
-            3000,
-        )
-        return
-
-    store_sources(sources)
-
-    best = pick_best_source(sources)
-
-    if not best:
-        xbmcgui.Dialog().notification(
-            "MDM Flix",
-            "No playable source found.",
-            xbmcgui.NOTIFICATION_WARNING,
-            3000,
-        )
-        return
-
-    if log:
-        log.info(f"Autoplay selected source: {best.get('label')}")
-
-    from resources.lib.playback.player import direct_play_source
-    direct_play_source(best.get("source_id", ""), best.get("label", "MDM Flix"))
-    return
+def autoplay(nav,addon,core,log,params):
+    try:
+        rows=search(addon,core,log,params)
+        if not rows: raise PlaybackError('No sources found. Try another title or check CocoScrapers settings.')
+        # Resolve only the top candidate, so autoplay never creates bulk transfers.
+        url=resolve(rows[0],addon,core,log)
+        play_url(url,rows[0]['label'])
+    except Cancelled:
+        failed()
+    except (PlaybackError,CatalogueError) as failure:
+        xbmcgui.Dialog().ok('MDM Flix',str(failure)); failed()
+    except Exception:
+        if log: log.warning('Autoplay failed unexpectedly')
+        xbmcgui.Dialog().ok('MDM Flix','Autoplay failed. Try Source Select or another title.'); failed()

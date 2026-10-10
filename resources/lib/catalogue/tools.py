@@ -6,9 +6,16 @@ TMDB_LOGO = "https://www.themoviedb.org/assets/v4/logos/v2/blue_square_2-d537fb2
 
 def diagnostics(nav, addon, core):
     client = TMDB(addon, core)
-    text = "Flix: {}\nCore: {}\nTMDB credentials: {}\nMetadata language: {}\n\nCatalogue browsing: TMDB\nReal-title playback: awaiting provider integration\nDemo playback: Tools → Test Playback".format(
+    from resources.lib.kodi_addons import get_addon
+    from resources.lib.playback.alldebrid import AllDebrid
+    debrid = AllDebrid(addon)
+    coco = get_addon("script.module.cocoscrapers")
+    text = "Flix: {}\nCore: {}\nTMDB credentials: {}\nMetadata language: {}\nCocoScrapers: {}\nProvider setting: {}\nPlayback mode: {}\nAllDebrid enabled: {}\nAllDebrid credentials: {}\n\nAvailability: checked on selection\nSource session expiry: 30 minutes\nSearch limit: 45 seconds\nResolve preparation limit: 60 seconds per stage\nMDM Link / free sources: planned next".format(
         addon.getAddonInfo("version"), getattr(core, "__version__", "unavailable"),
-        "configured" if client.configured else "missing", client.language)
+        "configured" if client.configured else "missing", client.language,
+        coco.getAddonInfo("version") if coco else "missing / disabled",
+        addon.getSetting("scraper_provider") or "Auto", addon.getSetting("playback_mode") or "Source Select",
+        "yes" if debrid.enabled else "no", "configured" if debrid.key else "missing")
     xbmcgui.Dialog().textviewer("MDM Flix diagnostics", text)
     nav.end()
 

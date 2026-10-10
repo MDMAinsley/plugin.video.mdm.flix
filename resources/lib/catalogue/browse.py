@@ -59,7 +59,7 @@ def show(nav, addon, core, params):
         elif action == "tv_episodes":
             episodes(nav, client, params)
         elif action == "catalogue_details":
-            details(nav, client, params)
+            details(nav, client, params, addon)
         else:
             raise CatalogueError("Unknown catalogue page.")
     except CatalogueError as failure:
@@ -151,7 +151,7 @@ def episodes(nav, client, params):
     nav.end("episodes")
 
 
-def details(nav, client, params):
+def details(nav, client, params, addon):
     media = params.get("media_type", "movie")
     tmdb_id = number(params.get("tmdb_id"), 1)
     parent = None
@@ -175,7 +175,14 @@ def details(nav, client, params):
     text += "\n\nTMDB {} ID: {}".format("show" if media == "tv" else "movie", tmdb_id)
     if media == "tv":
         text += "\nSeason {} · Episode {}".format(season, episode)
-    text += "\n\nCatalogue information only. Stream provider integration is the next development batch."
+    text += "\n\nPlayback: CocoScrapers sources resolved through your AllDebrid account."
     nav.add_action("View title information", "catalogue_info", params=dict(params), artwork=artwork(data, parent), info=metadata)
+    playback_params = {"media_type": media, "tmdb_id": tmdb_id}
+    if media == "tv":
+        playback_params.update(season=season, episode=episode)
+    if addon.getSetting("playback_mode") == "Autoplay":
+        nav.add_playable("Play (Autoplay)", "autoplay", params=playback_params, artwork=artwork(data, parent), info=metadata)
+    else:
+        nav.add_folder("Find playback sources", "sources", params=playback_params, artwork=artwork(data, parent), info=metadata)
     xbmcgui.Dialog().textviewer(metadata["title"], text)
     nav.end()

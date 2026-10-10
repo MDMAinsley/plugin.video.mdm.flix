@@ -25,6 +25,8 @@ def build_source(
 
 
 def normalise_source(raw, fallback_provider_id="", fallback_provider_name=""):
+    if not isinstance(raw, dict):
+        return None
     return build_source(
         source_id=raw.get("source_id") or raw.get("id") or "",
         label=raw.get("label") or raw.get("name") or "Unknown Source",
@@ -40,11 +42,11 @@ def normalise_source(raw, fallback_provider_id="", fallback_provider_name=""):
 
 
 def normalise_sources(raw_sources, fallback_provider_id="", fallback_provider_name=""):
-    return [
-        normalise_source(
-            raw,
-            fallback_provider_id=fallback_provider_id,
-            fallback_provider_name=fallback_provider_name,
-        )
-        for raw in raw_sources or []
-    ]
+    if not isinstance(raw_sources, (list, tuple)):
+        return []
+    result = []
+    for raw in raw_sources:
+        source = normalise_source(raw, fallback_provider_id, fallback_provider_name)
+        if source is not None:
+            result.append(source)
+    return result

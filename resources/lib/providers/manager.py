@@ -1,80 +1,26 @@
-from resources.lib.constants import (
-    PROVIDER_AUTO,
-    PROVIDER_MDM_LINK,
-    PROVIDER_COCOSCRAPERS,
-)
-
-from resources.lib.providers.mdm_link import MDMLinkProvider
 from resources.lib.providers.cocoscrapers import CocoScrapersProvider
 from resources.lib.models.source import normalise_sources
+from resources.lib.playback.errors import PlaybackError
 
 
 class ProviderManager:
     def __init__(self, addon, core=None, log=None):
-        self.addon = addon
-        self.core = core
-        self.log = log
-
-    def get_setting_provider(self):
-        raw = self.addon.getSetting("scraper_provider")
-
-        if raw == "MDM Link":
-            return PROVIDER_MDM_LINK
-
-        if raw == "CocoScrapers":
-            return PROVIDER_COCOSCRAPERS
-
-        return PROVIDER_AUTO
+        self.addon, self.core, self.log = addon, core, log
 
     def get_provider(self):
-        selected = self.get_setting_provider()
-
-        mdm_link = MDMLinkProvider(core=self.core, log=self.log)
-        cocoscrapers = CocoScrapersProvider(core=self.core, log=self.log)
-
-        if selected == PROVIDER_MDM_LINK:
-            if mdm_link.is_available():
-                return mdm_link
-            return None
-
-        if selected == PROVIDER_COCOSCRAPERS:
-            if cocoscrapers.is_available():
-                return cocoscrapers
-            return None
-
-        # Auto mode.
-        if mdm_link.is_available():
-            return mdm_link
-
-        if cocoscrapers.is_available():
-            return cocoscrapers
-
-        return None
+        if self.addon.getSetting('scraper_provider')=='MDM Link':
+            raise PlaybackError('MDM Link integration is planned for a later batch. Select Auto or CocoScrapers in settings.')
+        provider=CocoScrapersProvider(core=self.core,log=self.log)
+        if not provider.is_available(): raise PlaybackError('Install and enable CocoScrapers, then search again.')
+        return provider
 
     def search_sources(self, item):
-        provider = self.get_provider()
+        provider=self.get_provider()
+        return normalise_sources(provider.search_sources(item),provider.provider_id,provider.name)
 
-        if not provider:
-            if self.log:
-                self.log.warning("No scraper provider available")
-            return []
-
-        if self.log:
-            self.log.info(f"Using provider: {provider.name}")
-
-        raw_sources = provider.search_sources(item)
-
-        return normalise_sources(
-            raw_sources,
-            fallback_provider_id=provider.provider_id,
-            fallback_provider_name=provider.name,
-        )
-
-    def resolve_source(self, source):
-        provider_id = source.get("provider_id")
-        provider = self.get_provider()
-        if not provider:
-            if self.log:
-                self.log.warning("No scraper provider available")
-            return None
-        return provider.resolve_source(source)
+    def resolve_source(self, source, progress, monitor, choose):
+        # Respect the original provider even when Auto/settings change.
+        if source.get('provider_id')!='cocoscrapers': raise PlaybackError('This source uses an unavailable provider. Search again.')
+        provider=CocoScrapersProvider(core=self.core,log=self.log)
+        if not provider.is_available(): raise PlaybackError('CocoScrapers is unavailable. Enable it and search again.')
+        return provider.resolve_source(source,addon=self.addon,progress=progress,monitor=monitor,choose=choose)

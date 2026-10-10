@@ -46,7 +46,7 @@ class TMDB:
         if self.core is None:
             raise CatalogueError("MDM Core is unavailable. Enable or reinstall MDM Core 1.0.0 or later.")
         query = dict(params or {})
-        query["language"] = self.language
+        query.setdefault("language", self.language)
         # Hash credentials and query for the cache key; plugin URLs contain no credentials.
         auth = self.token or self.key
         digest = hashlib.sha256(json.dumps([auth, endpoint, query], sort_keys=True).encode("utf-8")).hexdigest()

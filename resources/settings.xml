@@ -17,4 +17,8 @@
         <setting id="tmdb_api_key" type="text" option="hidden" label="TMDB API Key (alternative)" default="" />
         <setting id="tmdb_language" type="text" label="Metadata language (e.g. en-GB)" default="en-GB" />
     </category>
+    <category label="AllDebrid">
+        <setting id="alldebrid_enabled" type="bool" label="Enable AllDebrid (prioritised when enabled)" default="true" />
+        <setting id="alldebrid_api_key" type="text" option="hidden" label="AllDebrid API key (or authorise through Tools)" default="" />
+    </category>
 </settings>

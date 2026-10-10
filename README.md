@@ -1,6 +1,47 @@
-# MDM Flix 0.1.0
+# MDM Flix 0.2.0
 
-This development batch implements TMDB catalogue browsing, not real-title playback.
+This development batch adds CocoScrapers torrent sources and AllDebrid playback to the TMDB catalogue.
+
+## Playback setup
+
+Install/enable CocoScrapers 1.0.39 or later from its own repository. This is an optional
+dependency: browsing works without it. Flix does not bundle or modify third-party scraper code.
+Keep Scraper Provider on Auto or CocoScrapers. Tools → Provider Settings opens CocoScrapers;
+only enabled torrent providers are searched. MDM Link integration remains future work.
+
+Tools → Authorise AllDebrid displays a PIN. Visit https://alldebrid.com/pin/ on your browser,
+enter it, and keep the Kodi dialog open. Alternatively enter your own API key in Flix settings.
+No credentials are required in chat. Check AllDebrid account shows subscription/auth status.
+Disconnect removes the local key and source session; revoke keys separately in AllDebrid if needed.
+Account identifiers, email addresses and keys are not shown in diagnostics.
+
+Open a movie or episode's information folder, close the information dialog, then choose
+Find playback sources. Pick an AllDebrid result to resolve and play. In Autoplay mode the
+folder has a Play (Autoplay) item; it searches and resolves the top result only. If it fails,
+choose Source Select and try another candidate. Debrid sources sort before free sources.
+
+Source labels say unchecked: the current documented AllDebrid API has no instant-availability
+endpoint. Only a selected source is uploaded to your account, never every search result.
+An uncached source can start an AllDebrid transfer; cancelling/timeout returns control but
+does not delete that account transfer. Manage transfers in AllDebrid. Preparation is bounded
+to 60 seconds per stage; retry the same result later when ready. Polls wait at least 5 seconds.
+
+Search is bounded to 45 seconds with at most six daemon workers; individual third-party
+requests already in flight cannot be forcibly stopped, but no further work starts on cancel.
+Sessions expire after 30 minutes; a newer source search replaces the previous list.
+Sessions contain original torrent candidates and public title metadata, not API keys or
+resolved signed URLs. Kodi settings mask the key but do not encrypt it on disk.
+
+Torrent folders are flattened, non-video/sample/trailer files excluded, and episode numbers
+matched explicitly (including season 0). Multiple matching files prompt for selection.
+Ambiguous/unmatched episodes are never replaced with an arbitrary video. Movie results with
+multiple videos also prompt; provider title filtering handles release matching.
+Only ordinary HTTP(S) playable URLs reach Kodi. HLS plays natively; DASH requires enabled
+InputStream Adaptive. Playback startup/runtime failures remain Kodi/platform acceptance.
+
+API contracts: https://docs.alldebrid.com/
+Third-party repository: https://github.com/CocoJoe2411/repository.cocoscrapers
+
 
 ## Setup
 
@@ -18,9 +59,9 @@ Movies and TV Shows provide Popular, weekly Trending and Search.
 Next page preserves the query. Use Kodi Back to return to previous pages.
 TV shows open seasons, including Specials (season 0), then episode lists.
 Movies and episodes open information with TMDB IDs and episode coordinates.
-No stream provider is connected to these catalogue entries yet.
+Catalogue entries now expose the configured playback route.
 Tools → Test Playback retains the existing fixed demo stream.
-Provider/playback settings are retained for the later playback batch.
+Provider/playback settings control this batch.
 
 Responses are cached through Core: lists/search for 10 minutes, details for one hour.
 Changing credentials or language uses a different hashed cache namespace.

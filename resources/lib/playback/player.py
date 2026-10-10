@@ -1,105 +1,39 @@
 import sys
+from urllib.parse import urlsplit
 import xbmc
 import xbmcgui
 import xbmcplugin
-from resources.lib.session import get_source
+from resources.lib.playback.files import web_url
+from resources.lib.playback.errors import PlaybackError
 
 
-def play_url(url, label="MDM Flix"):
-    if not url:
-        xbmcgui.Dialog().notification(
-            "MDM Flix",
-            "No playable URL found.",
-            xbmcgui.NOTIFICATION_ERROR,
-            3000,
-        )
-        xbmcplugin.setResolvedUrl(int(sys.argv[1]), False, xbmcgui.ListItem())
-        return
-
-    item = xbmcgui.ListItem(label=label, path=url)
-    item.setProperty("IsPlayable", "true")
-    item.setContentLookup(False)
-
-    lower_url = url.lower()
-
-    if ".m3u8" in lower_url:
-        item.setMimeType("application/vnd.apple.mpegurl")
-        item.setProperty("inputstream", "inputstream.adaptive")
-        item.setProperty("inputstream.adaptive.manifest_type", "hls")
-
-    elif ".mpd" in lower_url:
-        item.setMimeType("application/dash+xml")
-        item.setProperty("inputstream", "inputstream.adaptive")
-        item.setProperty("inputstream.adaptive.manifest_type", "mpd")
-
-    xbmcplugin.setResolvedUrl(
-        int(sys.argv[1]),
-        True,
-        item,
-    )
+def failed():
+    xbmcplugin.setResolvedUrl(int(sys.argv[1]),False,xbmcgui.ListItem())
 
 
-def play_source(source_id, label="MDM Flix"):
-    source = get_source(source_id)
-
-    if not source:
-        xbmcgui.Dialog().notification(
-            "MDM Flix",
-            "Source session expired. Open sources again.",
-            xbmcgui.NOTIFICATION_ERROR,
-            3000,
-        )
-        xbmcplugin.setResolvedUrl(int(sys.argv[1]), False, xbmcgui.ListItem())
-        return
-
-    play_url(source.get("url", ""), label)
-
-def direct_play_url(url, label="MDM Flix"):
-    if not url:
-        xbmcgui.Dialog().notification(
-            "MDM Flix",
-            "No playable URL found.",
-            xbmcgui.NOTIFICATION_ERROR,
-            3000,
-        )
-        return
-
-    item = xbmcgui.ListItem(label=label, path=url)
-    item.setProperty("IsPlayable", "true")
-    item.setContentLookup(False)
-
-    lower_url = url.lower()
-
-    if ".m3u8" in lower_url:
-        item.setMimeType("application/vnd.apple.mpegurl")
-        item.setProperty("inputstream", "inputstream.adaptive")
-        item.setProperty("inputstream.adaptive.manifest_type", "hls")
-
-    elif ".mpd" in lower_url:
-        item.setMimeType("application/dash+xml")
-        item.setProperty("inputstream", "inputstream.adaptive")
-        item.setProperty("inputstream.adaptive.manifest_type", "mpd")
-
-    xbmc.Player().play(url, item)
+def listitem(url,label):
+    if not web_url(url): raise PlaybackError('No valid playable URL was returned.')
+    item=xbmcgui.ListItem(label=label,path=url)
+    item.setProperty('IsPlayable','true'); item.setContentLookup(False)
+    path=urlsplit(url).path.lower()
+    if path.endswith('.m3u8'):
+        item.setMimeType('application/vnd.apple.mpegurl')
+        # Kodi can play ordinary HLS natively without forcing an optional addon.
+    elif path.endswith('.mpd'):
+        from resources.lib.kodi_addons import is_addon_installed
+        if not is_addon_installed('inputstream.adaptive'): raise PlaybackError('Install and enable InputStream Adaptive for this DASH source.')
+        item.setMimeType('application/dash+xml'); item.setProperty('inputstream','inputstream.adaptive')
+    return item
 
 
-def direct_play_source(source_id, label="MDM Flix"):
-    source = get_source(source_id)
+def play_url(url,label='MDM Flix'):
+    item=listitem(url,label)
+    xbmcplugin.setResolvedUrl(int(sys.argv[1]),True,item)
 
-    if not source:
-        xbmcgui.Dialog().notification(
-            "MDM Flix",
-            "Source session expired. Open sources again.",
-            xbmcgui.NOTIFICATION_ERROR,
-            3000,
-        )
-        return
 
-    direct_play_url(source.get("url", ""), label)
+def direct_play_url(url,label='MDM Flix'):
+    xbmc.Player().play(url,listitem(url,label))
 
 
 def play_test_stream():
-    play_url(
-        "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
-        "MDM Flix Test Stream",
-    )
+    play_url('https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8','MDM Flix Test Stream')

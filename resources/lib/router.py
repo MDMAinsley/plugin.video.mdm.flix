@@ -66,19 +66,16 @@ class Router:
             show(nav, self.addon)
 
         elif action == ACTION_SOURCES:
-            xbmcgui.Dialog().ok("MDM Flix", "Stream provider integration is not available yet. Use Tools → Test Playback for the demo stream.")
-            nav.end()
+            from resources.lib.playback.resolver import show_sources
+            show_sources(nav, self.addon, self.core, self.log, self.params)
 
         elif action == ACTION_PLAY:
-            from resources.lib.playback.player import play_source
-            play_source(
-                self.params.get("source_id", ""),
-                self.params.get("label", "MDM Flix"),
-            )
+            from resources.lib.playback.resolver import play_source
+            play_source(self.params.get("source_id", ""), self.addon, self.core, self.log)
 
         elif action == ACTION_AUTOPLAY:
-            xbmcgui.Dialog().ok("MDM Flix", "Stream provider integration is not available yet. Use Tools → Test Playback for the demo stream.")
-            nav.end()
+            from resources.lib.playback.resolver import autoplay
+            autoplay(nav, self.addon, self.core, self.log, self.params)
 
         elif action == ACTION_TEST_PLAYBACK:
             from resources.lib.playback.player import play_test_stream
@@ -89,7 +86,18 @@ class Router:
             return
 
         elif action == ACTION_PROVIDER_SETTINGS:
-            self.addon.openSettings()
+            from resources.lib.kodi_addons import get_addon
+            provider = get_addon("script.module.cocoscrapers")
+            if provider:
+                provider.openSettings()
+            else:
+                xbmcgui.Dialog().ok("MDM Flix", "Install and enable CocoScrapers to open its provider settings.")
+            return
+
+        elif action in ("alldebrid_authorise", "alldebrid_check", "alldebrid_disconnect"):
+            from resources.lib.playback.account import authorise, check_account, disconnect
+            handlers = {"alldebrid_authorise": authorise, "alldebrid_check": check_account, "alldebrid_disconnect": disconnect}
+            handlers[action](self.addon)
             return
 
         elif action == ACTION_DIAGNOSTICS:
