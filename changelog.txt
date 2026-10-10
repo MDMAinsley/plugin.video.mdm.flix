@@ -1,3 +1,6 @@
+0.6.0
+Add quiet bounded TMDB movie/TV home widgets; existing browsing and playback unchanged.
+
 0.5.0
 Connection speed, maximum reported GiB, explicit missing-metadata controls, estimated average bitrate with 25% reserve, and Quality/Connection/Smallest ordering. Debrid priority preserved; manual selection and single-source autoplay use the same limits. Device-local preferences; no speed probe or stability guarantee. Whole episode-pack sizes do not produce episode bitrate estimates. Conf provides preview/apply/undo for both addons.
 

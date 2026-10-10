@@ -49,6 +49,10 @@ class Router:
             from resources.lib.menus.home import show
             show(nav)
 
+        elif action == "skin_widget":
+            from resources.lib.catalogue.widgets import show
+            show(nav, self.addon, self.core, self.params)
+
         elif action == ACTION_MOVIES:
             from resources.lib.menus.movies import show
             show(nav)
