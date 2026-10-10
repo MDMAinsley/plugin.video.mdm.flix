@@ -73,6 +73,10 @@ class Router:
             from resources.lib.playback.resolver import play_source
             play_source(self.params.get("source_id", ""), self.addon, self.core, self.log)
 
+        elif action == 'source_group':
+            from resources.lib.playback.resolver import show_group
+            show_group(nav,self.params)
+
         elif action == ACTION_AUTOPLAY:
             from resources.lib.playback.resolver import autoplay
             autoplay(nav, self.addon, self.core, self.log, self.params)

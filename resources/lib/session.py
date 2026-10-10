@@ -46,13 +46,19 @@ def store_sources(sources):
     return data
 
 
-def get_source(source_id):
-    if not isinstance(source_id,str) or len(source_id)!=32: return None
+def get_sources(anchor):
+    """Read one list only when its anchor still belongs to the current session."""
+    if not isinstance(anchor,str) or len(anchor)!=32: return {}
     try:
         with open(_session_path(),encoding='utf-8') as stream: payload=json.load(stream)
-        if not isinstance(payload,dict) or payload.get('schema')!=2: return None
+        if not isinstance(payload,dict) or payload.get('schema')!=2: return {}
         created=payload.get('created'); now=int(time.time())
-        if type(created) is not int or created>now or now-created>=TTL: return None
-        rows=payload.get('sources'); source=rows.get(source_id) if isinstance(rows,dict) else None
-        return source if isinstance(source,dict) else None
-    except Exception: return None
+        if type(created) is not int or created>now or now-created>=TTL: return {}
+        rows=payload.get('sources')
+        if not isinstance(rows,dict) or not isinstance(rows.get(anchor),dict): return {}
+        return {key:value for key,value in rows.items() if isinstance(value,dict)}
+    except Exception: return {}
+
+
+def get_source(source_id):
+    return get_sources(source_id).get(source_id)
