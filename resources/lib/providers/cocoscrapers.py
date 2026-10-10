@@ -1,4 +1,5 @@
 """Adapter for installed CocoScrapers sources(data, hostDict)."""
+from resources.lib import device_policy
 import copy
 import hashlib
 import os
@@ -20,6 +21,9 @@ class CocoScrapersProvider(BaseProvider):
     provider_id = 'cocoscrapers'
     name = 'CocoScrapers'
     addon_id = 'script.module.cocoscrapers'
+
+    def __init__(self,addon=None,core=None,log=None):
+        super().__init__(core,log);self.addon=addon or xbmcaddon.Addon("plugin.video.mdm.flix")
 
     def is_available(self):
         return is_addon_installed(self.addon_id)
@@ -84,8 +88,8 @@ class CocoScrapersProvider(BaseProvider):
                 results.put((name,rows))
         progress=xbmcgui.DialogProgress(); progress.create('MDM Flix','Searching enabled CocoScrapers providers…')
         monitor=xbmc.Monitor()
-        for _ in range(min(6,len(modules))): threading.Thread(target=worker,daemon=True).start()
-        completed=0; found=[]; seen=set(); deadline=time.monotonic()+45
+        for _ in range(min(device_policy.integer(self.addon,"device_workers",6,1,6),len(modules))): threading.Thread(target=worker,daemon=True).start()
+        completed=0; found=[]; seen=set(); deadline=time.monotonic()+device_policy.integer(self.addon,"device_search_timeout",45,10,120)
         try:
             while completed<len(modules) and time.monotonic()<deadline:
                 if progress.iscanceled() or monitor.abortRequested(): raise Cancelled('Source search cancelled.')
@@ -94,7 +98,7 @@ class CocoScrapersProvider(BaseProvider):
                 completed+=1
                 for raw in rows if isinstance(rows,list) else []:
                     source=self.convert(raw,name,item)
-                    if source and source['extra']['hash'] not in seen:
+                    if source and device_policy.allows(self.addon,source) and source['extra']['hash'] not in seen:
                         found.append(source); seen.add(source['extra']['hash'])
                 progress.update(int(100*completed/len(modules)), '{} providers finished · {} sources'.format(completed,len(found)))
             if completed<len(modules): xbmcgui.Dialog().notification('MDM Flix','Search timed out; showing completed provider results.',xbmcgui.NOTIFICATION_INFO,3000)

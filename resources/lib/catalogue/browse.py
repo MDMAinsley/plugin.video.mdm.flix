@@ -1,4 +1,5 @@
 import xbmc
+from resources.lib import device_policy
 import xbmcgui
 
 from resources.lib.catalogue.tmdb import TMDB, CatalogueError, number
@@ -14,12 +15,13 @@ LIST_ROUTES = {
 }
 
 
-def artwork(raw, parent=None):
+def artwork(raw, parent=None, addon=None):
     parent = parent or {}
-    poster = TMDB.image(raw.get("poster_path") or parent.get("poster_path"))
+    light = device_policy.artwork_mode(addon) if addon else False
+    poster = TMDB.image(raw.get("poster_path") or parent.get("poster_path"), "w342" if light else "w500")
     return {"poster": poster, "icon": poster or "DefaultVideo.png",
-            "fanart": TMDB.image(raw.get("backdrop_path") or parent.get("backdrop_path"), "w1280"),
-            "thumb": TMDB.image(raw.get("still_path")) or poster}
+            "fanart": "" if light else TMDB.image(raw.get("backdrop_path") or parent.get("backdrop_path"), "w1280"),
+            "thumb": TMDB.image(raw.get("still_path"), "w300" if light else "w500") or poster}
 
 
 def info(raw, media, parent=None):
@@ -90,7 +92,7 @@ def listing(nav, client, action, params):
             continue
         metadata = info(raw, "movie" if media == "movie" else "tvshow")
         nav.add_folder(metadata["title"], "catalogue_details" if media == "movie" else "tv_seasons",
-                       params={"media_type": media, "tmdb_id": tmdb_id}, artwork=artwork(raw), info=metadata)
+                       params={"media_type": media, "tmdb_id": tmdb_id}, artwork=artwork(raw, addon=client.addon), info=metadata)
         count += 1
     if not count:
         xbmcgui.Dialog().notification("MDM Flix", "No results found.", xbmcgui.NOTIFICATION_INFO, 3000)
@@ -120,7 +122,7 @@ def seasons(nav, client, params):
         name = raw.get("name")
         name = name if isinstance(name, str) and name else ("Specials" if season == 0 else "Season {}".format(season))
         nav.add_folder(name, "tv_episodes",
-                       params={"tmdb_id": tmdb_id, "season": season}, artwork=artwork(raw, data), info=metadata)
+                       params={"tmdb_id": tmdb_id, "season": season}, artwork=artwork(raw, data, client.addon), info=metadata)
         count += 1
     if not count:
         xbmcgui.Dialog().notification("MDM Flix", "No seasons available.", xbmcgui.NOTIFICATION_INFO, 3000)
@@ -144,7 +146,7 @@ def episodes(nav, client, params):
         metadata = info(raw, "episode", parent)
         nav.add_folder("{}. {}".format(episode, metadata["title"]), "catalogue_details",
                        params={"media_type": "tv", "tmdb_id": tmdb_id, "season": season, "episode": episode},
-                       artwork=artwork(raw, parent), info=metadata)
+                       artwork=artwork(raw, parent, client.addon), info=metadata)
         count += 1
     if not count:
         xbmcgui.Dialog().notification("MDM Flix", "No episodes available.", xbmcgui.NOTIFICATION_INFO, 3000)
@@ -176,13 +178,13 @@ def details(nav, client, params, addon):
     if media == "tv":
         text += "\nSeason {} · Episode {}".format(season, episode)
     text += "\n\nPlayback: CocoScrapers sources resolved through your AllDebrid account."
-    nav.add_action("View title information", "catalogue_info", params=dict(params), artwork=artwork(data, parent), info=metadata)
+    nav.add_action("View title information", "catalogue_info", params=dict(params), artwork=artwork(data, parent, addon), info=metadata)
     playback_params = {"media_type": media, "tmdb_id": tmdb_id}
     if media == "tv":
         playback_params.update(season=season, episode=episode)
     if addon.getSetting("playback_mode") == "Autoplay":
-        nav.add_playable("Play (Autoplay)", "autoplay", params=playback_params, artwork=artwork(data, parent), info=metadata)
+        nav.add_playable("Play (Autoplay)", "autoplay", params=playback_params, artwork=artwork(data, parent, addon), info=metadata)
     else:
-        nav.add_folder("Find playback sources", "sources", params=playback_params, artwork=artwork(data, parent), info=metadata)
+        nav.add_folder("Find playback sources", "sources", params=playback_params, artwork=artwork(data, parent, addon), info=metadata)
     xbmcgui.Dialog().textviewer(metadata["title"], text)
     nav.end()

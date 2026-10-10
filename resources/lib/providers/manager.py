@@ -1,3 +1,4 @@
+from resources.lib import device_policy
 from resources.lib.providers.cocoscrapers import CocoScrapersProvider
 from resources.lib.providers.mdm_link import MDMLinkProvider
 from resources.lib.models.source import normalise_sources
@@ -13,7 +14,7 @@ class ProviderManager:
             provider=MDMLinkProvider(self.addon,core=self.core,log=self.log)
             if not provider.is_available(): raise PlaybackError('Install and enable MDM Link, then search again.')
             return provider
-        provider=CocoScrapersProvider(core=self.core,log=self.log)
+        provider=CocoScrapersProvider(addon=self.addon,core=self.core,log=self.log)
         if not provider.is_available(): raise PlaybackError('Install and enable CocoScrapers, then search again.')
         return provider
 
@@ -28,13 +29,14 @@ class ProviderManager:
 
     def search_sources(self, item):
         provider=self.get_provider()
-        return normalise_sources(provider.search_sources(item),provider.provider_id,provider.name)
+        return device_policy.filter_rows(self.addon,normalise_sources(provider.search_sources(item),provider.provider_id,provider.name))
 
     def resolve_source(self, source, progress, monitor, choose):
+        if not device_policy.allows(self.addon,source):raise PlaybackError("This source exceeds your current quality limit or has hidden unknown quality. Search again or change Device settings.")
         # Respect the original provider even when Auto/settings change.
         if source.get('provider_id')=='mdm_link':
             return MDMLinkProvider(self.addon,core=self.core,log=self.log).resolve_source(source,addon=self.addon,progress=progress,monitor=monitor,choose=choose)
         if source.get('provider_id')!='cocoscrapers': raise PlaybackError('This source uses an unavailable provider. Search again.')
-        provider=CocoScrapersProvider(core=self.core,log=self.log)
+        provider=CocoScrapersProvider(addon=self.addon,core=self.core,log=self.log)
         if not provider.is_available(): raise PlaybackError('CocoScrapers is unavailable. Enable it and search again.')
         return provider.resolve_source(source,addon=self.addon,progress=progress,monitor=monitor,choose=choose)

@@ -1,4 +1,5 @@
 """Application-authenticated TMDB requests using the shared Core helpers."""
+from resources.lib import device_policy
 import hashlib
 import json
 import re
@@ -26,6 +27,7 @@ class TMDB:
 
     def __init__(self, addon, core):
         self.core = core
+        self.addon = addon
         self.token = addon.getSetting("tmdb_token").strip()
         self.key = addon.getSetting("tmdb_api_key").strip()
         language = addon.getSetting("tmdb_language").strip() or "en-GB"
@@ -63,7 +65,7 @@ class TMDB:
         else:
             query["api_key"] = self.key
         try:
-            data = self.core.network.download_json(self.BASE + endpoint + "?" + urlencode(query), timeout=15, headers=headers)
+            data = self.core.network.download_json(self.BASE + endpoint + "?" + urlencode(query), timeout=device_policy.integer(self.addon,"device_request_timeout",15,10,60), headers=headers)
         except Exception:
             data = None
         if not self.valid(data, field):
