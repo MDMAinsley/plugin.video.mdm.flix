@@ -46,3 +46,7 @@ Clear configuration/network/no-results handling and TMDB credits.
 Catalogue details preserve movie/show IDs and episode coordinates.
 Real-title playback awaits provider integration; demo stream remains in Tools.
 Requires MDM Core 1.0.0. Historical batch: all six FLIX-PC-01 checks passed as reported on PC.
+
+
+0.8.1 — 16 October 2026
+Autoplay rechecks pending readiness up to three times at two-second intervals, then advances within the existing three-candidate/75-second bounds. Selected pending magnets may remain in AllDebrid; no automatic deletion or all-results upload. Account/network failures and cancellation still stop. Flix reads an atomic timestamped URL-free report, ignores the legacy summary setting and distinguishes URL handoff from confirmed playback.

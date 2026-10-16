@@ -4,7 +4,7 @@
     <setting id="scraper_provider" type="select" label="Scraper Provider" values="Auto|MDM Link|CocoScrapers" default="Auto" />
     <setting id="playback_mode" type="select" label="Playback Mode" values="Source Select|Autoplay" default="Source Select" />
     <setting id="autoplay_attempts" type="select" label="Autoplay maximum sources" values="1|2|3" default="3" />
-    <setting id="last_autoplay_summary" type="text" label="Autoplay diagnostic summary" default="" visible="false" />
+    <setting id="last_autoplay_summary" type="text" label="Legacy Autoplay summary (unused)" default="" visible="false" />
   </category>
   <category label="TMDB">
     <setting id="tmdb_token" type="text" option="hidden" label="TMDB API Read Access Token (preferred)" default="" />
