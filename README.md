@@ -28,7 +28,7 @@ Source labels say unchecked: the current documented AllDebrid API has no instant
 endpoint. Only a selected source is uploaded to your account, never every search result.
 An uncached source can start an AllDebrid transfer; cancelling/timeout returns control but
 does not delete that account transfer. Manage transfers in AllDebrid. Preparation is bounded
-to 60 seconds per stage; retry the same result later when ready. Polls wait at least 5 seconds.
+to 45 seconds total after source search; retry the same result later when ready. Polls wait at least 5 seconds.
 
 CocoScrapers search is bounded to 45 seconds with at most six daemon workers; Link search uses 30 seconds and at most five workers; individual third-party
 requests already in flight cannot be forcibly stopped, but no further work starts on cancel.
@@ -98,3 +98,14 @@ Connection speed, maximum reported GiB, explicit missing-metadata controls, esti
 Size uses GiB (1024^3 bytes), not decimal GB. Mbps uses 1,000,000 bits/s. Enter your own connection capacity; 0 disables connection classification. Average bitrate = reported size * 8 / title duration; 75% of entered speed is the budget. Variable bitrate peaks, host throughput and runtime accuracy can differ. Connection order: debrid first, then within each access group Fits estimate, Unknown, Above budget; quality breaks ties. Smallest order: debrid first, smaller reported sizes first, unknown last. A positive size cap filters size before sorting, including in Connection mode. Hide unknown size only acts with a positive size cap; Hide unknown bitrate/Above budget only acts with a positive connection. Defaults preserve quality order without new filtering. Torrent/package-size caps are conservative; an excluded pack may contain smaller eligible files. Current source limits are checked again before resolution and against debrid file/stream metadata where supplied. Returned metadata is not a verified download quota.
 
 Home widgets use the same title click actions. Skin 0.2.0 repairs first-load updates and refreshes mode-sensitive rows after its Flix settings dialog closes. Reopen a catalogue page after changing the playback preference externally. Artwork disk caching is still managed by Kodi; custom bounded MDM-owned cache eviction is a future milestone.
+
+
+## Playback reliability repair
+
+The selected debrid file keeps the release's reported resolution when the filename omits it. An explicit file resolution takes precedence and higher quality remains subject to the chosen cap. Size and bitrate checks use actual file bytes where supplied; unknown metadata stays unknown. File-selection errors distinguish unavailable/no-video file lists, an unmatched episode and specific quality/size/connection exclusions. Preferences from both Flix and the selected provider are respected.
+
+AllDebrid readiness and delayed-link preparation share one 45-second resolution budget, after the separately bounded source search. Requests use the smaller of their existing timeout and remaining resolution budget. Progress identifies checking, downloading/preparing, file matching and link generation; cancellation remains available. Transfers are not deleted on timeout. Autoplay still resolves only the top ranked source, without bulk transfers or a new fallback loop. Ranking is not an availability guarantee.
+
+The earlier 2 Mbps and 2 GiB test values are restrictive preferences, not a measured connection. A 2 Mbps input has a 1.5 Mbps estimated budget. Above-budget filtering depends on the Show/Hide choice. Use actual measured capacity, or 0 to disable that estimate; retain a file-size cap if it is intentional. This release never resets user preferences.
+
+The preparation budget excludes time spent deliberately choosing among matching files. An in-flight network call uses its remaining timeout; cancellation is checked between those calls and during preparation waits.

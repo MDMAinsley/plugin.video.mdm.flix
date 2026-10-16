@@ -1,3 +1,6 @@
+0.7.1
+Require the shared playback reliability repair; clarify preference ranking and resolution preparation limits.
+
 0.7.0
 Unified mixed film/TV search; direct movie/episode playback-mode links with context-menu information.
 

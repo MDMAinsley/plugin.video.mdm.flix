@@ -10,7 +10,7 @@ def diagnostics(nav, addon, core):
     from resources.lib.playback.alldebrid import AllDebrid
     debrid = AllDebrid(addon)
     coco = get_addon("script.module.cocoscrapers")
-    text = "Flix: {}\nCore: {}\nTMDB credentials: {}\nMetadata language: {}\nCocoScrapers: {}\nProvider setting: {}\nPlayback mode: {}\nAllDebrid enabled: {}\nAllDebrid credentials: {}\n\nAvailability: checked on selection\nSource session expiry: 30 minutes\nSearch limit: 45 seconds\nResolve preparation limit: 60 seconds per stage\nMDM Link: available through Provider Settings".format(
+    text = "Flix: {}\nCore: {}\nTMDB credentials: {}\nMetadata language: {}\nCocoScrapers: {}\nProvider setting: {}\nPlayback mode: {}\nAllDebrid enabled: {}\nAllDebrid credentials: {}\n\nAvailability: checked on selection\nSource session expiry: 30 minutes\nSearch limit: 45 seconds\nAllDebrid preparation limit: 45 seconds total (after source search)\nMDM Link: available through Provider Settings".format(
         addon.getAddonInfo("version"), getattr(core, "__version__", "unavailable"),
         "configured" if client.configured else "missing", client.language,
         coco.getAddonInfo("version") if coco else "missing / disabled",
