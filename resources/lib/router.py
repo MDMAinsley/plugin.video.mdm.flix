@@ -62,8 +62,8 @@ class Router:
             show(nav)
 
         elif action == ACTION_SEARCH:
-            from resources.lib.menus.search import show
-            show(nav)
+            from resources.lib.catalogue.browse import show
+            show(nav, self.addon, self.core, dict(self.params, action="search_all"))
 
         elif action == ACTION_TOOLS:
             from resources.lib.menus.tools import show
@@ -91,6 +91,7 @@ class Router:
 
         elif action == ACTION_OPEN_SETTINGS:
             self.addon.openSettings()
+            xbmc.executebuiltin("Container.Refresh")
             return
 
         elif action == ACTION_PROVIDER_SETTINGS:
@@ -124,6 +125,11 @@ class Router:
             handlers[action](self.addon)
             return
 
+        elif action == "title_info":
+            from resources.lib.catalogue.cards import show_info
+            show_info(self.addon, self.core, self.params)
+            return
+
         elif action == ACTION_DIAGNOSTICS:
             from resources.lib.catalogue.tools import diagnostics
             diagnostics(nav, self.addon, self.core)
@@ -135,7 +141,7 @@ class Router:
         elif action in (ACTION_MOVIES_TRENDING, ACTION_MOVIES_POPULAR,
                         ACTION_SEARCH_MOVIES, ACTION_TV_TRENDING,
                         ACTION_TV_POPULAR, ACTION_SEARCH_TV,
-                        "tv_seasons", "tv_episodes", "catalogue_details", "catalogue_info"):
+                        "search_all", "tv_seasons", "tv_episodes", "catalogue_details", "catalogue_info"):
             from resources.lib.catalogue.browse import show
             params = dict(self.params)
             if action == "catalogue_info":

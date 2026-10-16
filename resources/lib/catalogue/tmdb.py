@@ -88,6 +88,12 @@ class TMDB:
             params.update(query=query, include_adult="false")
         return self.request(endpoint, params, field="results")
 
+    def search_all(self, query, page=1):
+        if not isinstance(query, str) or not query.strip() or len(query) > 200:
+            raise CatalogueError("Enter a search of 1 to 200 characters.")
+        return self.request("search/multi", {"query": query.strip(),
+            "page": number(page, 1, 500), "include_adult": "false"}, field="results")
+
     def details(self, media, tmdb_id):
         if media not in ("movie", "tv"):
             raise CatalogueError("Unknown media type.")

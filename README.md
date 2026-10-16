@@ -1,4 +1,4 @@
-# MDM Flix 0.3.1
+# MDM Flix 0.7.0
 
 This batch connects the TMDB catalogue to MDM Link 0.1.1's real source API. Link supports Free, Debrid and Combined modes, Internet Archive direct files, Torrentio torrent metadata and three configurable stream-provider slots. See MDM Link's README for coverage and limitations. Core 1.0.0 and Link 0.1.1 are required dependencies.
 
@@ -17,10 +17,12 @@ No credentials are required in chat. Check AllDebrid account shows subscription/
 Disconnect removes the local key and source session; revoke keys separately in AllDebrid if needed.
 Account identifiers, email addresses and keys are not shown in diagnostics.
 
-Open a movie or episode's information folder, close the information dialog, then choose
-Find playback sources. Pick a result to resolve and play; Link Free mode also supplies direct video. In Autoplay mode the
-folder has a Play (Autoplay) item; it searches and resolves the top result only. If it fails,
-choose Source Select and try another candidate. Debrid sources sort before free sources. When both types are returned, open AllDebrid sources, Free sources or All sources; each folder shows its count. These folders reuse the same search and source session. Results are a scrolling list, with no separate next page. Search again if a source list expires or another search replaces it.
+Click a movie or episode to use your playback preference directly. Source Select opens the
+source results; Autoplay searches and resolves only the top result. Shows open seasons and
+episodes first. Title information is on the context menu (hold/menu, keyboard C, right-click).
+The main Search opens one keyboard and returns mixed Film/TV results, with query-preserving
+pagination; separate browse searches remain available. Link Free mode also supplies direct
+video. If Autoplay fails, choose Source Select and try another candidate. Debrid sources sort before free sources. When both types are returned, open AllDebrid sources, Free sources or All sources; each folder shows its count. These folders reuse the same search and source session. Results are a scrolling list, with no separate next page. Search again if a source list expires or another search replaces it.
 
 Source labels say unchecked: the current documented AllDebrid API has no instant-availability
 endpoint. Only a selected source is uploaded to your account, never every search result.
@@ -94,3 +96,5 @@ Use Conf Device profiles to preview/apply Low memory or Balanced and undo the la
 ## Connection and file-size preferences
 Connection speed, maximum reported GiB, explicit missing-metadata controls, estimated average bitrate with 25% reserve, and Quality/Connection/Smallest ordering. Debrid priority preserved; manual selection and single-source autoplay use the same limits. Device-local preferences; no speed probe or stability guarantee. Whole episode-pack sizes do not produce episode bitrate estimates. Conf provides preview/apply/undo for both addons.
 Size uses GiB (1024^3 bytes), not decimal GB. Mbps uses 1,000,000 bits/s. Enter your own connection capacity; 0 disables connection classification. Average bitrate = reported size * 8 / title duration; 75% of entered speed is the budget. Variable bitrate peaks, host throughput and runtime accuracy can differ. Connection order: debrid first, then within each access group Fits estimate, Unknown, Above budget; quality breaks ties. Smallest order: debrid first, smaller reported sizes first, unknown last. A positive size cap filters size before sorting, including in Connection mode. Hide unknown size only acts with a positive size cap; Hide unknown bitrate/Above budget only acts with a positive connection. Defaults preserve quality order without new filtering. Torrent/package-size caps are conservative; an excluded pack may contain smaller eligible files. Current source limits are checked again before resolution and against debrid file/stream metadata where supplied. Returned metadata is not a verified download quota.
+
+Home widgets use the same title click actions. Skin 0.2.0 repairs first-load updates and refreshes mode-sensitive rows after its Flix settings dialog closes. Reopen a catalogue page after changing the playback preference externally. Artwork disk caching is still managed by Kodi; custom bounded MDM-owned cache eviction is a future milestone.

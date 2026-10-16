@@ -1,3 +1,6 @@
+0.7.0
+Unified mixed film/TV search; direct movie/episode playback-mode links with context-menu information.
+
 0.6.0
 Add quiet bounded TMDB movie/TV home widgets; existing browsing and playback unchanged.
 

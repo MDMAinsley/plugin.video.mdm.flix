@@ -54,7 +54,9 @@ def show(nav, addon, core, params):
     client = TMDB(addon, core)
     action = params.get("action")
     try:
-        if action in LIST_ROUTES:
+        if action == "search_all":
+            mixed_search(nav, client, params)
+        elif action in LIST_ROUTES:
             listing(nav, client, action, params)
         elif action == "tv_seasons":
             seasons(nav, client, params)
@@ -91,8 +93,9 @@ def listing(nav, client, action, params):
         except CatalogueError:
             continue
         metadata = info(raw, "movie" if media == "movie" else "tvshow")
-        nav.add_folder(metadata["title"], "catalogue_details" if media == "movie" else "tv_seasons",
-                       params={"media_type": media, "tmdb_id": tmdb_id}, artwork=artwork(raw, addon=client.addon), info=metadata)
+        from resources.lib.catalogue.cards import add_title
+        add_title(nav, client.addon, metadata["title"], media, tmdb_id,
+                  artwork=artwork(raw, addon=client.addon), info=metadata)
         count += 1
     if not count:
         xbmcgui.Dialog().notification("MDM Flix", "No results found.", xbmcgui.NOTIFICATION_INFO, 3000)
@@ -102,6 +105,41 @@ def listing(nav, client, action, params):
         nav.add_folder("Next page ({})".format(page + 1), action,
                        params={"page": page + 1, "query": query})
     nav.end("movies" if media == "movie" else "tvshows")
+
+
+def mixed_search(nav, client, params):
+    query = params.get("query", "")
+    if not query:
+        keyboard = xbmc.Keyboard("", "Search films and TV")
+        keyboard.doModal()
+        if not keyboard.isConfirmed() or not keyboard.getText().strip():
+            nav.end("videos")
+            return
+        query = keyboard.getText().strip()
+    page = number(params.get("page", 1), 1, 500)
+    data = client.search_all(query, page)
+    from resources.lib.catalogue.cards import add_title
+    count = 0
+    for raw in data["results"]:
+        if not isinstance(raw, dict) or raw.get("adult") is True or raw.get("media_type") not in ("movie", "tv"):
+            continue
+        try:
+            identifier = number(raw.get("id"), 1)
+        except CatalogueError:
+            continue
+        media = raw["media_type"]
+        metadata = info(raw, "movie" if media == "movie" else "tvshow")
+        label = metadata["title"] + (" [Film]" if media == "movie" else " [TV]")
+        add_title(nav, client.addon, label, media, identifier,
+                  artwork=artwork(raw, addon=client.addon), info=metadata)
+        count += 1
+    if not count:
+        xbmcgui.Dialog().notification("MDM Flix", "No film or TV results on this page.", xbmcgui.NOTIFICATION_INFO, 3000)
+    total = data.get("total_pages", 1)
+    total = min(total, 500) if type(total) is int and total > 0 else 1
+    if page < total:
+        nav.add_folder("Next page ({})".format(page + 1), "search_all", params={"page": page + 1, "query": query})
+    nav.end("videos")
 
 
 def seasons(nav, client, params):
@@ -144,9 +182,9 @@ def episodes(nav, client, params):
             continue
         raw = dict(raw, season_number=season)
         metadata = info(raw, "episode", parent)
-        nav.add_folder("{}. {}".format(episode, metadata["title"]), "catalogue_details",
-                       params={"media_type": "tv", "tmdb_id": tmdb_id, "season": season, "episode": episode},
-                       artwork=artwork(raw, parent, client.addon), info=metadata)
+        from resources.lib.catalogue.cards import add_title
+        add_title(nav, client.addon, "{}. {}".format(episode, metadata["title"]), "tv", tmdb_id,
+                  season=season, episode=episode, artwork=artwork(raw, parent, client.addon), info=metadata)
         count += 1
     if not count:
         xbmcgui.Dialog().notification("MDM Flix", "No episodes available.", xbmcgui.NOTIFICATION_INFO, 3000)

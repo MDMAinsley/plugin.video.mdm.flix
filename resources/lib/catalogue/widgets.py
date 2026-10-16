@@ -25,9 +25,9 @@ def show(nav, addon, core, params):
             except CatalogueError:
                 continue
             metadata = info(raw, "movie" if media == "movie" else "tvshow")
-            nav.add_folder(metadata["title"], "catalogue_details" if media == "movie" else "tv_seasons",
-                params={"media_type": media, "tmdb_id": identifier},
-                artwork=artwork(raw, addon=addon), info=metadata)
+            from resources.lib.catalogue.cards import add_title
+            add_title(nav, addon, metadata["title"], media, identifier,
+                      artwork=artwork(raw, addon=addon), info=metadata)
             count += 1
             if count == 12:
                 break

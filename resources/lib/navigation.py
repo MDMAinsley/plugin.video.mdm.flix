@@ -15,12 +15,14 @@ class Navigator:
     def build_url(self, **params):
         return f"{self.base_url}?{urlencode(params)}"
 
-    def add_folder(self, label, action, params=None, artwork=None, info=None):
+    def add_folder(self, label, action, params=None, artwork=None, info=None, context_menu=None):
         params = dict(params or {})
         params["action"] = action
 
         url = self.build_url(**params)
         item = create_folder_item(label, artwork=artwork, info=info)
+        if context_menu:
+            item.addContextMenuItems(context_menu)
 
         xbmcplugin.addDirectoryItem(
             handle=self.handle,
@@ -29,12 +31,14 @@ class Navigator:
             isFolder=True,
         )
 
-    def add_playable(self, label, action, params=None, artwork=None, info=None):
+    def add_playable(self, label, action, params=None, artwork=None, info=None, context_menu=None):
         params = dict(params or {})
         params["action"] = action
 
         url = self.build_url(**params)
         item = create_playable_item(label, artwork=artwork, info=info)
+        if context_menu:
+            item.addContextMenuItems(context_menu)
 
         xbmcplugin.addDirectoryItem(
             handle=self.handle,
