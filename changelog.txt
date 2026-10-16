@@ -1,3 +1,6 @@
+0.8.0
+Bounded ranked Autoplay fallback after explicit source failures; three unique candidates maximum, safe stop classes and sanitized diagnostics.
+
 0.7.1
 Require the shared playback reliability repair; clarify preference ranking and resolution preparation limits.
 

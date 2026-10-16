@@ -21,6 +21,9 @@ def diagnostics(nav, addon, core):
         from mdmlink.api import status
         import json
         text += '\n\nMDM Link status (no credentials/addresses):\n' + json.dumps(status(link), indent=2)
+    from resources.lib.playback.autoplay import diagnostic
+    import json
+    text += '\n\nLast Autoplay resolution (no URLs/accounts):\n' + json.dumps(diagnostic(addon), indent=2)
     xbmcgui.Dialog().textviewer("MDM Flix diagnostics", text)
     nav.end()
 

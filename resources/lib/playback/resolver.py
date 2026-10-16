@@ -77,8 +77,8 @@ def show_group(nav,params):
     display_sources(nav,rows,addon)
 
 
-def resolve(source,addon,core,log):
-    progress=xbmcgui.DialogProgress(); progress.create('MDM Flix','Resolving the selected source…')
+def resolve(source,addon,core,log,attempt=None):
+    progress=xbmcgui.DialogProgress(); progress.create('MDM Flix',('Trying source {} of {}…'.format(*attempt) if attempt else 'Resolving the selected source…'))
     monitor=xbmc.Monitor()
     try:
         def choose(names):
@@ -88,6 +88,10 @@ def resolve(source,addon,core,log):
             if choice>=0: progress.create('MDM Flix','Resolving selected video…')
             return choice
         return ProviderManager(addon,core,log).resolve_source(source,progress,monitor,choose)
+    except Exception:
+        if progress.iscanceled() or monitor.abortRequested():
+            raise Cancelled('Playback cancelled.') from None
+        raise
     finally:
         progress.close()
 
@@ -108,16 +112,5 @@ def play_source(source_id,addon,core,log):
 
 
 def autoplay(nav,addon,core,log,params):
-    try:
-        rows=search(addon,core,log,params)
-        if not rows: raise PlaybackError('No sources remain. Check source preferences, provider settings and source mode.')
-        # Resolve only the top candidate, so autoplay never creates bulk transfers.
-        url=resolve(rows[0],addon,core,log)
-        play_url(url,rows[0]['label'])
-    except Cancelled:
-        failed()
-    except (PlaybackError,CatalogueError) as failure:
-        xbmcgui.Dialog().ok('MDM Flix',str(failure)); failed()
-    except Exception:
-        if log: log.warning('Autoplay failed unexpectedly')
-        xbmcgui.Dialog().ok('MDM Flix','Autoplay failed. Try Source Select or another title.'); failed()
+    from resources.lib.playback.autoplay import run
+    run(nav,addon,core,log,params,search,resolve,play_url,failed)
