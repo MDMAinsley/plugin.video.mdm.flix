@@ -49,6 +49,15 @@ class Router:
             from resources.lib.menus.home import show
             show(nav)
 
+        elif action in ("library_home", "library_view"):
+            from resources.lib.library_ui import show
+            show(nav, self.addon, self.core, self.params)
+
+        elif action in ("library_manage", "library_create", "library_rename", "library_delete", "library_remove", "library_up", "library_down", "library_help"):
+            from resources.lib.library_ui import action as library_action
+            library_action(self.addon, self.core, self.params)
+            return
+
         elif action == "skin_widget":
             from resources.lib.catalogue.widgets import show
             show(nav, self.addon, self.core, self.params)

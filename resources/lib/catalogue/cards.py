@@ -5,7 +5,7 @@ from resources.lib.catalogue.tmdb import TMDB, CatalogueError, number
 
 
 def add_title(nav, addon, label, media, identifier, artwork=None, info=None,
-              season=None, episode=None):
+              season=None, episode=None, extra_context=None):
     if media not in ("movie", "tv"):
         raise CatalogueError("Invalid title type.")
     params = {"media_type": media, "tmdb_id": number(identifier, 1)}
@@ -16,6 +16,10 @@ def add_title(nav, addon, label, media, identifier, artwork=None, info=None,
         params.update(season=number(season), episode=number(episode, 1))
     context = [("Title information", "RunPlugin(plugin://plugin.video.mdm.flix/?" +
         urlencode(dict(params, action="title_info")) + ")")]
+    # Saving an episode here saves its parent show; episode progress is separate.
+    from resources.lib.library_ui import command
+    context.append(("My Library (show)" if is_episode else "My Library", command("library_manage", media_type=media, tmdb_id=identifier)))
+    context.extend(extra_context or [])
     common = dict(params=params, artwork=artwork, info=info, context_menu=context)
     if media == "tv" and not is_episode:
         nav.add_folder(label, "tv_seasons", **common)

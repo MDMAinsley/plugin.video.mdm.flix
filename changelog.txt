@@ -50,3 +50,7 @@ Requires MDM Core 1.0.0. Historical batch: all six FLIX-PC-01 checks passed as r
 
 0.8.1 — 16 October 2026
 Autoplay rechecks pending readiness up to three times at two-second intervals, then advances within the existing three-candidate/75-second bounds. Selected pending magnets may remain in AllDebrid; no automatic deletion or all-results upload. Account/network failures and cancellation still stop. Flix reads an atomic timestamped URL-free report, ignores the legacy summary setting and distinguishes URL handoff from confirmed playback.
+
+
+0.9.0 — 17 October 2026
+My Library: persistent saved films/shows, My List and up to 19 named lists, rename/delete, add/remove/reorder, personal 1–10 ratings/clear, film/TV/rated filters. Open from Flix/Films/TV; use poster context menu My Library (episodes manage their parent show). Browsing saved titles uses local metadata and respects existing direct-click playback settings. Ratings are personal and distinct from TMDB. Local bounded SQLite transactions keep identities separate from source URLs/credentials. This initial library is device-local and not included in Conf's portable settings builds. Resume/watched state, trailers, cloud list export/import and artwork eviction remain planned.
