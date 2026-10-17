@@ -5,6 +5,11 @@ import json
 import re
 from urllib.parse import urlencode
 
+try:
+    from resources.lib.catalogue._tmdb_public_key import DEFAULT_TMDB_API_KEY
+except ImportError:
+    DEFAULT_TMDB_API_KEY = ""
+
 
 class CatalogueError(Exception):
     pass
@@ -29,7 +34,7 @@ class TMDB:
         self.core = core
         self.addon = addon
         self.token = addon.getSetting("tmdb_token").strip()
-        self.key = addon.getSetting("tmdb_api_key").strip()
+        self.key = addon.getSetting("tmdb_api_key").strip() or DEFAULT_TMDB_API_KEY
         language = addon.getSetting("tmdb_language").strip() or "en-GB"
         self.language = language if re.fullmatch(r"[a-z]{2}-[A-Z]{2}", language) else "en-GB"
 
