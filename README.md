@@ -124,3 +124,7 @@ Autoplay rechecks pending readiness up to three times at two-second intervals, t
 
 0.9.0 — 17 October 2026
 My Library: persistent saved films/shows, My List and up to 19 named lists, rename/delete, add/remove/reorder, personal 1–10 ratings/clear, film/TV/rated filters. Open from Flix/Films/TV; use poster context menu My Library (episodes manage their parent show). Browsing saved titles uses local metadata and respects existing direct-click playback settings. Ratings are personal and distinct from TMDB. Local bounded SQLite transactions keep identities separate from source URLs/credentials. This initial library is device-local and not included in Conf's portable settings builds. Resume/watched state, trailers, cloud list export/import and artwork eviction remain planned.
+
+
+0.10.0 — 17 October 2026
+Device-local Resume/Start again, Continue Watching and watched/history controls. Only tagged MDM movie/episode video after AV start is observed; periodic checkpoints every 15 seconds, local progress by stable catalogue identity, no source URLs or network sync. Home has Continue Watching/My List shortcuts; Kodi favourites remain under Flix home. Saving personal lists/ratings remains separate. Movies/episodes under 60 seconds or unknown duration never auto-complete; known videos at >=90% are marked watched. Progress is device-local and excluded from current Conf portable builds. MDBList is the recommended future connected tracker; linking/sync and self-hosting are not implemented in this release.

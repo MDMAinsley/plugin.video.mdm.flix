@@ -49,6 +49,19 @@ class Router:
             from resources.lib.menus.home import show
             show(nav)
 
+        elif action in ("continue_watching", "viewing_history", "progress_details"):
+            from resources.lib.playback.progress_ui import show
+            show(nav, self.addon, self.core, self.params)
+
+        elif action in ("progress_mark", "progress_clear", "progress_save", "progress_unsave", "progress_lists", "progress_help"):
+            from resources.lib.playback.progress_ui import action as progress_action
+            progress_action(self.addon, self.core, self.params)
+            return
+
+        elif action == "kodi_favourites":
+            xbmc.executebuiltin("ActivateWindow(Favourites)")
+            return
+
         elif action in ("library_home", "library_view"):
             from resources.lib.library_ui import show
             show(nav, self.addon, self.core, self.params)

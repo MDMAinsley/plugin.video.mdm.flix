@@ -73,7 +73,9 @@ def run(nav, addon, core, log, params, search, resolve, play_url, failed):
                 autoplay_context.check()
                 if monitor.abortRequested():
                     raise Cancelled("Playback cancelled.")
-                play_url(url, source.get("label", "MDM Flix"))
+                from resources.lib.playback.tracking import source as tracking_source
+                with tracking_source(source, addon):
+                    play_url(url, source.get("label", "MDM Flix"))
                 handed_off = True
                 if not save("handoff"):
                     xbmcgui.Dialog().notification("MDM Flix", "Video handed to Kodi; latest diagnostic could not be saved.")

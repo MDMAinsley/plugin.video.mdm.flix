@@ -6,6 +6,9 @@
     <setting id="autoplay_attempts" type="select" label="Autoplay maximum sources" values="1|2|3" default="3" />
     <setting id="last_autoplay_summary" type="text" label="Legacy Autoplay summary (unused)" default="" visible="false" />
   </category>
+  <category label="Viewing progress">
+    <setting id="progress_enabled" type="bool" label="Keep Continue Watching and watched status on this device" default="true" />
+  </category>
   <category label="TMDB">
     <setting id="tmdb_token" type="text" option="hidden" label="TMDB API Read Access Token (preferred)" default="" />
     <setting id="tmdb_api_key" type="text" option="hidden" label="TMDB API Key (alternative)" default="" />

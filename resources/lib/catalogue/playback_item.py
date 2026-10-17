@@ -40,4 +40,8 @@ def load(addon, core, params):
     if type(minutes) in (int,float) and 0<minutes<=1440:
         item['duration_seconds']=minutes*60
         item['runtime']=minutes*60
+    from resources.lib.catalogue.browse import artwork
+    display=episode_data if is_episode else data
+    item['plot']=display.get('overview') if isinstance(display.get('overview'),str) else ''
+    item['artwork']=artwork(display,data if is_episode else None,addon)
     return item

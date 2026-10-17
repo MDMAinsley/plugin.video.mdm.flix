@@ -18,7 +18,12 @@ def configured(addon):
 def search(addon,core,log,params):
     configured(addon)
     item=load(addon,core,params)
-    return sort_sources(ProviderManager(addon,core,log).search_sources(item),addon)
+    rows=sort_sources(ProviderManager(addon,core,log).search_sources(item),addon)
+    for row in rows:
+        row['extra']=dict(row.get('extra') or {})
+        row['extra']['item']=item
+        row['_progress_mode']=params.get('resume_mode') if params.get('resume_mode') in ('resume','restart') else ''
+    return rows
 
 
 def show_sources(nav,addon,core,log,params):
@@ -101,7 +106,9 @@ def play_source(source_id,addon,core,log):
         source=get_source(source_id)
         if not source: raise PlaybackError('Source session expired or was replaced. Open sources again.')
         url=resolve(source,addon,core,log)
-        play_url(url,source.get('label','MDM Flix'))
+        from resources.lib.playback.tracking import source as tracking_source
+        with tracking_source(source,addon):
+            play_url(url,source.get('label','MDM Flix'))
     except Cancelled:
         failed()
     except (PlaybackError,CatalogueError) as failure:

@@ -19,6 +19,8 @@ def add_title(nav, addon, label, media, identifier, artwork=None, info=None,
     # Saving an episode here saves its parent show; episode progress is separate.
     from resources.lib.library_ui import command
     context.append(("My Library (show)" if is_episode else "My Library", command("library_manage", media_type=media, tmdb_id=identifier)))
+    if media=='movie' or is_episode:
+        context.append(("Viewing progress", "ActivateWindow(Videos,plugin://plugin.video.mdm.flix/?"+urlencode(dict(params,action="progress_details"))+",return)"))
     context.extend(extra_context or [])
     common = dict(params=params, artwork=artwork, info=info, context_menu=context)
     if media == "tv" and not is_episode:

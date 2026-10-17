@@ -24,6 +24,8 @@ def show(nav, addon, core, params):
     try:
         library=Library(addon)
         if params.get('action')=='library_home':
+            nav.add_folder('Continue Watching','continue_watching')
+            nav.add_folder('Viewing History / watched status','viewing_history')
             for label,kind in [('All saved and rated titles','all'),('Films in your library','movie'),('TV shows in your library','tv'),('Your rated titles','rated')]:
                 nav.add_folder(label,'library_view',params={'filter':kind})
             for row in library.lists():

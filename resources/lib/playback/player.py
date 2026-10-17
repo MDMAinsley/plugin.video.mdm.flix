@@ -23,6 +23,8 @@ def listitem(url,label):
         from resources.lib.kodi_addons import is_addon_installed
         if not is_addon_installed('inputstream.adaptive'): raise PlaybackError('Install and enable InputStream Adaptive for this DASH source.')
         item.setMimeType('application/dash+xml'); item.setProperty('inputstream','inputstream.adaptive')
+    from resources.lib.playback.tracking import stamp
+    stamp(item)
     return item
 
 

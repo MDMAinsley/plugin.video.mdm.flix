@@ -10,5 +10,6 @@ def show(nav):
     nav.add_folder("Popular Movies", ACTION_MOVIES_POPULAR)
     nav.add_folder("Search Movies", ACTION_SEARCH_MOVIES)
 
+    nav.add_folder("Continue Watching", "continue_watching")
     nav.add_folder("My Library / Lists", "library_home")
     nav.end("movies")
