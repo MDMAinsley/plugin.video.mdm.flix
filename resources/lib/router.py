@@ -59,7 +59,7 @@ class Router:
             return
 
         elif action == "kodi_favourites":
-            xbmc.executebuiltin("ActivateWindow(Favourites)")
+            xbmc.executebuiltin("ActivateWindow(favouritesbrowser)")
             return
 
         elif action in ("library_home", "library_view"):
