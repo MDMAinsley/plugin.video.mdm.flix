@@ -66,7 +66,7 @@ class CocoScrapersProvider(BaseProvider):
                 'provider_id':'cocoscrapers', 'provider_name':'CocoScrapers / '+name,
                 'quality':raw.get('quality') if isinstance(raw.get('quality'),str) else 'Unknown',
                 'size':connection_policy.coco_size(raw.get('size')) or '', 'host':'torrent', 'debrid':True,
-                'extra':{'item':item, 'size_scope':'package' if raw.get('package') else 'file' if item.get('media_type')=='movie' or 'package' in raw else 'unknown', 'hash':match[1].lower(), 'scraper':name, 'availability':'unchecked'}}
+                'extra':{'item':item, 'size_scope':'package' if raw.get('package') else 'file' if item.get('media_type')=='movie' or 'package' in raw else 'unknown', 'hash':match[1].lower(), 'scraper':name, 'availability':'unchecked', **({'has_chapters':raw['has_chapters']} if type(raw.get('has_chapters')) is bool else {})}}
 
     def search_sources(self, item):
         modules = self.modules()

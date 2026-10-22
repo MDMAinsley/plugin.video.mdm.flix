@@ -39,6 +39,9 @@ def stamp(listitem):
         if choice<0:raise Cancelled('Resume cancelled.')
         if choice==0:resume=at
     payload=dict(schema=1,token=uuid.uuid4().hex,created=int(time.time()),item=item,resume=resume)
+    from resources.lib.playback.chapter_facts import fingerprint
+    chapter_key=fingerprint(row)
+    if chapter_key:payload['chapter_key']=chapter_key
     listitem.setProperty(PROPERTY,json.dumps(payload,ensure_ascii=False))
 
 def read(listitem):
@@ -51,5 +54,8 @@ def read(listitem):
         now=int(time.time());created=value.get('created');resume=value.get('resume')
         if type(created) is not int or not 0<=now-created<=300:return None
         if type(resume) is not int or not 0<=resume<=86400:return None
-        return dict(token=value['token'],item=clean(value.get('item')),resume=resume)
+        result=dict(token=value['token'],item=clean(value.get('item')),resume=resume)
+        chapter_key=value.get('chapter_key')
+        if isinstance(chapter_key,str) and re.fullmatch('[0-9a-f]{64}',chapter_key):result['chapter_key']=chapter_key
+        return result
     except (ValueError,TypeError,ProgressError):return None

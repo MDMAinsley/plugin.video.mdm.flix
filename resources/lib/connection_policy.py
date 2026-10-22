@@ -22,7 +22,7 @@ def validate_settings(addon):
         value=setting(addon,key,'0')
         if not isinstance(value,str) or not re.fullmatch(r'\d{1,5}(?:\.\d{1,3})?',value) or not 0<=float(value)<=10000:
             raise ValueError('Invalid connection/file-size preferences. Use numbers from 0 to 10000, with up to three decimal places. Open addon settings to correct them.')
-    for key,options,default in (('device_source_order',('Quality','Connection','Smallest'),'Quality'),('device_unknown_size',('Show','Hide'),'Show'),('device_slow_sources',('Show','Hide'),'Show'),('device_unknown_bitrate',('Show','Hide'),'Show')):
+    for key,options,default in (('device_chapter_priority',('Off','Tie-breaker','Prefer known chapters'),'Tie-breaker'),('device_source_order',('Quality','Connection','Smallest'),'Quality'),('device_unknown_size',('Show','Hide'),'Show'),('device_slow_sources',('Show','Hide'),'Show'),('device_unknown_bitrate',('Show','Hide'),'Show')):
         if setting(addon,key,default) not in options:raise ValueError('Invalid source preference. Choose a listed order or Show/Hide option in addon settings.')
 
 def size_gib(row):
@@ -80,17 +80,24 @@ def quality_score(row):
 
 def badge(addon,row):
     state,rate=assessment(addon,row)
-    return '' if state=='Off' else ' · '+state+(' ~{:.1f} Mbps'.format(rate) if rate is not None else '')
+    chapters=' · Chapters known' if (row.get('extra') or {}).get('has_chapters') is True else ''
+    return chapters+('' if state=='Off' else ' · '+state+(' ~{:.1f} Mbps'.format(rate) if rate is not None else ''))
 
 def order(addon,rows):
     mode=setting(addon,'device_source_order','Quality')
-    def key(row):
+    def base_key(row):
         paid=bool(row.get('debrid'));quality=quality_score(row);size=size_gib(row)
         if mode=='Smallest':return paid,size is not None,-size if size is not None else 0,quality
         if mode=='Connection' and decimal(addon,'device_connection_mbps',10000):
             state,rate=assessment(addon,row)
             return paid,{'Fits estimate':2,'Unknown':1,'Above budget':0}.get(state,1),quality,-rate if rate is not None else 0
         return paid,quality
+    def key(row):
+        base=base_key(row);priority=setting(addon,'device_chapter_priority','Tie-breaker')
+        known=(row.get('extra') or {}).get('has_chapters') is True
+        if priority=='Prefer known chapters':return base[:1]+(known,)+base[1:]
+        if priority=='Tie-breaker':return base+(known,)
+        return base
     return sorted(rows,key=key,reverse=True)
 
 def select(addon,rows):return order(addon,[row for row in rows if allows(addon,row)])

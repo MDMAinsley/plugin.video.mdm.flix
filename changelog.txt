@@ -1,4 +1,4 @@
-0.11.0
+0.11.1
 Remote-friendly Next episode prompts (chapters, percentage or seconds remaining), labelled-chapter Skip Intro and persistent per-show intro ranges. New-show and per-show toggles, owned-playback checks and aired episode/season navigation; existing playback mode preserved.
 
 0.8.0

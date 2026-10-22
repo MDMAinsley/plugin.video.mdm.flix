@@ -42,6 +42,7 @@ def configuration(addon,preset=None):
                 percent=bounded_setting(addon,'episode_next_percent',95,50,99),
                 remaining=bounded_setting(addon,'episode_next_seconds',60,5,600),
                 intro_enabled=enabled(addon,'episode_intro_enabled'),
+                prefer_chapters=enabled(addon,'episode_prefer_chapters'),
                 intro_mode=preset.get('intro_mode','Chapters'),
                 start=preset.get('start',0),end=preset.get('end',0))
 
@@ -72,7 +73,7 @@ CREDITS={'credits','end credits','closing credits','ending credits','outro','end
 def intro_range(config,chapters,duration):
     if not config['enabled'] or not config['intro_enabled'] or duration<60:return None
     if config['intro_mode']=='Off':return None
-    if config['intro_mode']=='Chapters':
+    if config['intro_mode']=='Chapters' or config.get('prefer_chapters',True):
         for index,(start,name) in enumerate(chapters[:-1]):
             end=chapters[index+1][0]
             if named(name,INTRO) and 0<=start<min(900,duration*.5) and 3<=end-start<=600 and end<duration-30:
@@ -86,10 +87,10 @@ def intro_range(config,chapters,duration):
 def next_at(config,chapters,duration):
     if not config['enabled'] or not config['next_enabled'] or duration<60:return None
     mode=config['next_mode']
-    if mode=='Chapters':
+    if mode=='Chapters' or config.get('prefer_chapters',True):
         for start,name in chapters:
             if named(name,CREDITS) and duration*.5<=start<=duration-3:return start
-        mode='Seconds from end'
+        if mode=='Chapters':mode='Seconds from end'
     if mode=='Watch percentage':return duration*config['percent']/100
     # Never offer Next episode in the opening half of a short file.
     return max(duration*.5,duration-config['remaining'])

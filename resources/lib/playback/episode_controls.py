@@ -59,6 +59,7 @@ class Controls:
         self.addon=addon;self.player=player or xbmc.Player();self.token=None;self.item=None
         self.shown=set();self.chapters=[];self.chapter_attempts=0;self.chapter_due=0;self.config_due=0
         self.config=None;self.dialog=None;self.closed=False
+        self.chapter_key=None
 
     def dismiss(self):
         if self.dialog:
@@ -104,7 +105,8 @@ class Controls:
             if token:
                 try:candidate=tracking.read(self.player.getPlayingItem())
                 except RuntimeError:candidate=None
-                if candidate and candidate['item']['media_type']=='episode':self.token=token;self.item=candidate['item']
+                if candidate and candidate['item']['media_type']=='episode':
+                    self.token=token;self.item=candidate['item'];self.chapter_key=candidate.get('chapter_key')
         if not self.item or not self.valid(self.token):return
         try:
             position=finite(self.player.getTime());duration=finite(self.player.getTotalTime())
@@ -122,9 +124,13 @@ class Controls:
                 else:return
             if xbmc.getCondVisibility('Player.Paused') or not xbmc.getCondVisibility('Window.IsActive(fullscreenvideo)'):return
             # Probe only three times after AV start. Old Kodi may lack the method.
-            if self.chapter_attempts<3 and now>=self.chapter_due and (config['intro_mode']=='Chapters' or config['next_mode']=='Chapters'):
+            if self.chapter_attempts<3 and now>=self.chapter_due and (config['prefer_chapters'] or config['intro_mode']=='Chapters' or config['next_mode']=='Chapters'):
                 self.chapters=chapter_marks(read_chapters(),duration);self.chapter_attempts+=1;self.chapter_due=now+10
-                if self.chapters:self.chapter_attempts=3
+                if self.chapters:
+                    self.chapter_attempts=3
+                    if self.valid(self.token) and self.chapter_key:
+                        from resources.lib.playback.chapter_facts import Facts
+                        Facts(self.addon).remember(self.chapter_key,True)
             intro=intro_range(config,self.chapters,duration)
             if intro and 'intro' not in self.shown and intro[0]<=position<intro[1]-2:
                 self.prompt('intro','Opening titles','Skip intro',lambda token:self.skip(token,intro[1]),position,duration,intro[1]);return
