@@ -9,6 +9,15 @@
   <category label="Viewing progress">
     <setting id="progress_enabled" type="bool" label="Keep Continue Watching and watched status on this device" default="true" />
   </category>
+  <category label="Episode controls">
+    <setting id="episode_next_enabled" type="bool" label="Show Next episode prompt" default="true" />
+    <setting id="episode_next_mode" type="select" label="Next episode trigger" values="Chapters|Watch percentage|Seconds from end" default="Chapters" />
+    <setting id="episode_next_percent" type="number" label="Watch percentage (50–99)" default="95" />
+    <setting id="episode_next_seconds" type="number" label="Seconds from end / chapter fallback (5–600)" default="60" />
+    <setting id="episode_intro_enabled" type="bool" label="Show Skip intro prompt" default="true" />
+    <setting id="episode_new_shows" type="bool" label="Enable prompts for new shows without a preset" default="true" />
+    <setting type="action" label="Manage saved show presets" action="ActivateWindow(Videos,plugin://plugin.video.mdm.flix/?action=episode_settings,return)" />
+  </category>
   <category label="TMDB">
     <setting id="tmdb_token" type="text" option="hidden" label="TMDB API Read Access Token (preferred)" default="" />
     <setting id="tmdb_api_key" type="text" option="hidden" label="TMDB API Key (alternative)" default="" />

@@ -22,14 +22,14 @@ def stamp(listitem):
     current=_source.get()
     if not current:return
     row,addon=current
-    if addon.getSetting('progress_enabled')=='false':return
+    if addon.getSetting('progress_enabled')=='false' and not any(addon.getSetting(name)=='true' for name in ('episode_next_enabled','episode_intro_enabled')):return
     try:
         item=clean(row.get('extra',{}).get('item'))
     except ProgressError:
         return
     resume=0
     try:
-        previous=Store(addon).get(item)
+        previous=None if addon.getSetting('progress_enabled')=='false' else Store(addon).get(item)
     except ProgressError as error:
         xbmcgui.Dialog().notification('MDM Flix',str(error));previous=None
     if previous and not previous['watched'] and previous['position']>=30:

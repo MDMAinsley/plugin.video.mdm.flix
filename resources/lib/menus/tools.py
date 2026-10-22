@@ -7,6 +7,7 @@ from resources.lib.constants import (
 
 
 def show(nav, addon):
+    nav.add_folder('Episode controls / Saved intro presets','episode_settings')
     nav.add_action("Open MDM Flix Settings", ACTION_OPEN_SETTINGS)
     nav.add_action("Provider Settings", ACTION_PROVIDER_SETTINGS)
     nav.add_action("Authorise AllDebrid", "alldebrid_authorise")

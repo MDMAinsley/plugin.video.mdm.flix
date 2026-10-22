@@ -128,3 +128,10 @@ My Library: persistent saved films/shows, My List and up to 19 named lists, rena
 
 0.10.0 — 17 October 2026
 Device-local Resume/Start again, Continue Watching and watched/history controls. Only tagged MDM movie/episode video after AV start is observed; periodic checkpoints every 15 seconds, local progress by stable catalogue identity, no source URLs or network sync. Home has Continue Watching/My List shortcuts; Kodi favourites remain under Flix home. Saving personal lists/ratings remains separate. Movies/episodes under 60 seconds or unknown duration never auto-complete; known videos at >=90% are marked watched. Progress is device-local and excluded from current Conf portable builds. MDBList is the recommended future connected tracker; linking/sync and self-hosting are not implemented in this release.
+
+
+## Episode controls (0.11.0)
+
+Settings → Episode controls chooses Chapters, Watch percentage or Seconds from end for Next episode. Missing credit markers use the seconds fallback. Hold/menu on a show or episode → Episode controls / Intro preset to save intro start and end (seconds or M:SS), use labelled chapters with that range as fallback, or turn the show off. Saved ranges apply to all episodes of the show; different edits/seasons may need a replacement range. The new-shows toggle controls shows without a saved preset.
+
+Prompts offer Skip intro / Next episode and Keep watching, disappear after 15 seconds, and never start playback automatically. Next uses your existing Autoplay or Source Select setting and TMDB aired episode order. Chapter support depends on Kodi and the file; generic numbered chapters are not assumed to be intros/credits. No timing is detected from video/audio. Presets stay on this device and are excluded from portable builds.

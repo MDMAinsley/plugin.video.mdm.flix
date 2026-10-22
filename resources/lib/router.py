@@ -49,6 +49,20 @@ class Router:
             from resources.lib.menus.home import show
             show(nav)
 
+        elif action == 'episode_settings':
+            from resources.lib.playback.episode_ui import settings
+            settings(nav,self.addon)
+
+        elif action in ('episode_show','episode_help'):
+            from resources.lib.playback.episode_ui import setup
+            setup(self.addon,self.core,self.params)
+            return
+
+        elif action == 'episode_next':
+            from resources.lib.playback.episode_ui import play_next
+            play_next(self.addon,self.core,self.params)
+            return
+
         elif action in ("continue_watching", "viewing_history", "progress_details"):
             from resources.lib.playback.progress_ui import show
             show(nav, self.addon, self.core, self.params)

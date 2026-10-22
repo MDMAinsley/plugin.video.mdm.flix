@@ -103,5 +103,10 @@ class Observer(xbmc.Player):
 
 def run(addon):
     observer=Observer(addon);monitor=xbmc.Monitor()
-    while not monitor.waitForAbort(1):observer.tick()
-    observer.finish()
+    from resources.lib.playback.episode_controls import Controls
+    controls=Controls(addon)
+    try:
+        while not monitor.waitForAbort(1):
+            observer.tick();controls.tick()
+    finally:
+        controls.close();observer.finish()
