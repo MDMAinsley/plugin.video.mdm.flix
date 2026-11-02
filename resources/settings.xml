@@ -10,6 +10,7 @@
     <setting id="progress_enabled" type="bool" label="Keep Continue Watching and watched status on this device" default="true" />
   </category>
   <category label="Episode controls">
+    <setting id="episode_metadata_probe" type="bool" label="Read video duration and chapters before episode playback" default="true" />
     <setting id="episode_timing_lookup" type="bool" label="Use background intro/outro timing lookups" default="true" />
     <setting id="episode_timing_policy" type="select" label="Timing fallback policy" values="Best available|Strict matches" default="Best available" />
     <setting id="episode_next_enabled" type="bool" label="Show Next episode prompt" default="true" />

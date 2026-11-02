@@ -147,6 +147,10 @@ class Controls:
             # Probe only three times after AV start. Old Kodi may lack the method.
             if self.chapter_attempts<3 and now>=self.chapter_due and (config['prefer_chapters'] or config['intro_mode']=='Chapters' or config['next_mode']=='Chapters'):
                 self.chapters=chapter_marks(read_chapters(),duration);self.chapter_attempts+=1;self.chapter_due=now+10
+                from resources.lib.playback.media_metadata import chapters
+                from resources.lib.playback.episode_policy import INTRO,CREDITS
+                cached=chapter_marks(chapters(self.addon,self.chapter_key,duration),duration)
+                if cached and not any(name in INTRO|CREDITS for _,name in self.chapters):self.chapters=cached
                 if self.chapters:
                     self.chapter_attempts=3
                     if self.valid(self.token) and self.chapter_key:

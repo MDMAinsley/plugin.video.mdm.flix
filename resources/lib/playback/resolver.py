@@ -25,6 +25,10 @@ def search(addon,core,log,params):
         row['extra']=dict(row.get('extra') or {})
         row['extra']['item']=item
         row['_progress_mode']=params.get('resume_mode') if params.get('resume_mode') in ('resume','restart') else ''
+    from resources.lib.playback.media_metadata import search_candidates
+    monitor=xbmc.Monitor()
+    rows=search_candidates(addon,sort_sources(rows,addon),monitor.abortRequested)
+    if monitor.abortRequested():raise Cancelled("Playback cancelled.")
     return sort_sources(rows,addon)
 
 
@@ -94,7 +98,17 @@ def resolve(source,addon,core,log,attempt=None):
             choice=xbmcgui.Dialog().select('Choose matching video file',names)
             if choice>=0: progress.create('MDM Flix','Resolving selected video…')
             return choice
-        return ProviderManager(addon,core,log).resolve_source(source,progress,monitor,choose)
+        url=ProviderManager(addon,core,log).resolve_source(source,progress,monitor,choose)
+        from resources.lib.playback.media_metadata import prepare
+        from mdmlink import autoplay_context
+        autoplay_context.check()
+        remaining=autoplay_context.remaining()
+        budget=min(4,remaining) if remaining is not None else 4
+        if budget>.1:
+            progress.update(95,'Checking video duration and chapter metadata…')
+            prepare(addon,source,url,budget,lambda:progress.iscanceled() or monitor.abortRequested())
+        if progress.iscanceled() or monitor.abortRequested():raise Cancelled('Playback cancelled.')
+        return url
     except Exception:
         if progress.iscanceled() or monitor.abortRequested():
             raise Cancelled('Playback cancelled.') from None

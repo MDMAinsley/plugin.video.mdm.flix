@@ -120,7 +120,7 @@ def annotate_sources(addon,rows):
             duration=observed.get(identity) or rules.source_duration(row)
             if duration:
                 extra['file_duration_seconds']=duration
-                extra['file_duration_origin']='observed' if identity in observed else 'reported'
+                extra['file_duration_origin']='observed' if identity in observed else ('header' if extra.get('file_duration_origin')=='header' else 'reported')
             # Clear old decorations if the user disabled the feature or changed
             # sources/settings; never trust a scraped timing-match assertion.
             extra.pop('timing_match',None);extra.pop('timing_delta_seconds',None)

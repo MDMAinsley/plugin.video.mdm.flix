@@ -1,3 +1,6 @@
+0.14.0
+Automatically read small MP4/Matroska metadata ranges from the selected episode before playback. Cache real file durations and available chapter names for timing matching; IntroDB match can preflight up to three already-direct free candidates. Bounded reads, cancellation, negative caching and optional toggle; unknown metadata never stops playback. No unselected debrid additions and no guaranteed detection where timings/labelled chapters are absent.
+
 0.13.0
 Best-available intro/outro fallback from either timing service, with unverified prompts and optional Strict matches. New IntroDB match source order compares available reported/observed file runtimes with timing runtimes after size and quality filters. Missing runtimes remain unknown; existing chapters and local corrections retain priority.
 

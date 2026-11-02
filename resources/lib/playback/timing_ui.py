@@ -67,6 +67,9 @@ def action(addon,core,params):
         while True:
             rows,status=store.data(item)
             if not timing_service.enabled(addon):status=['Online timing lookups are off. Confirmed local timings and show presets remain separate.']
+            if context:
+                from resources.lib.playback.media_metadata import description
+                status.append(description(addon,context['fingerprint']))
             labels=['Timing information / why a suggestion is not used','Check again','Save corrected intro times for this playing file…','Clear confirmed timings for this playing file']
             suggestions=[row for row in rows if duration and rules.fallback_interval(row,duration)]
             labels.extend('Review '+row['kind']+' suggestion: '+stamp(row['start'])+'–'+stamp(row['end'])+' · '+row['provider'] for row in suggestions)

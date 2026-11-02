@@ -20,6 +20,8 @@ def sort_sources(sources,addon=None):
         from resources.lib.playback.chapter_facts import Facts
         rows=[s for s in sources or [] if usable(s)]
         rows=[row for row in device_policy.filter_rows(addon,rows) if connection_policy.allows(addon,row)]
+        from resources.lib.playback.media_metadata import decorate
+        rows=decorate(addon,rows)
         if addon.getSetting('device_chapter_priority')!='Off':rows=Facts(addon).annotate(rows)
         from resources.lib.playback.timing_service import annotate_sources
         rows=annotate_sources(addon,rows)
