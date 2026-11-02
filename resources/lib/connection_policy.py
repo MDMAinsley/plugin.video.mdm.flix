@@ -22,7 +22,7 @@ def validate_settings(addon):
         value=setting(addon,key,'0')
         if not isinstance(value,str) or not re.fullmatch(r'\d{1,5}(?:\.\d{1,3})?',value) or not 0<=float(value)<=10000:
             raise ValueError('Invalid connection/file-size preferences. Use numbers from 0 to 10000, with up to three decimal places. Open addon settings to correct them.')
-    for key,options,default in (('device_chapter_priority',('Off','Tie-breaker','Prefer known chapters'),'Tie-breaker'),('device_source_order',('Quality','Connection','Smallest'),'Quality'),('device_unknown_size',('Show','Hide'),'Show'),('device_slow_sources',('Show','Hide'),'Show'),('device_unknown_bitrate',('Show','Hide'),'Show')):
+    for key,options,default in (('device_timing_priority',('Off','Tie-breaker','Prefer runtime match'),'Prefer runtime match'),('device_chapter_priority',('Off','Tie-breaker','Prefer known chapters'),'Tie-breaker'),('device_source_order',('Quality','Connection','Smallest'),'Quality'),('device_unknown_size',('Show','Hide'),'Show'),('device_slow_sources',('Show','Hide'),'Show'),('device_unknown_bitrate',('Show','Hide'),'Show')):
         if setting(addon,key,default) not in options:raise ValueError('Invalid source preference. Choose a listed order or Show/Hide option in addon settings.')
 
 def size_gib(row):
@@ -81,7 +81,8 @@ def quality_score(row):
 def badge(addon,row):
     state,rate=assessment(addon,row)
     chapters=' · Chapters known' if (row.get('extra') or {}).get('has_chapters') is True else ''
-    return chapters+('' if state=='Off' else ' · '+state+(' ~{:.1f} Mbps'.format(rate) if rate is not None else ''))
+    timings=' · Intro runtime match' if (row.get('extra') or {}).get('timing_match') is True and setting(addon,'episode_timing_lookup','true')!='false' else ''
+    return chapters+timings+('' if state=='Off' else ' · '+state+(' ~{:.1f} Mbps'.format(rate) if rate is not None else ''))
 
 def order(addon,rows):
     mode=setting(addon,'device_source_order','Quality')
@@ -95,9 +96,11 @@ def order(addon,rows):
     def key(row):
         base=base_key(row);priority=setting(addon,'device_chapter_priority','Tie-breaker')
         known=(row.get('extra') or {}).get('has_chapters') is True
-        if priority=='Prefer known chapters':return base[:1]+(known,)+base[1:]
-        if priority=='Tie-breaker':return base+(known,)
-        return base
+        extra=row.get('extra') or {};matched=extra.get('timing_match') is True and setting(addon,'episode_timing_lookup','true')!='false'
+        delta=extra.get('timing_delta_seconds');delta=delta if type(delta) in (int,float) and math.isfinite(delta) and 0<=delta<=5 else 5
+        timing=(matched,-delta if matched else 0);rank=setting(addon,'device_timing_priority','Prefer runtime match')
+        prefix=base[:1]+((known,) if priority=='Prefer known chapters' else ())+(timing if rank=='Prefer runtime match' else ())
+        return prefix+base[1:]+((known,) if priority=='Tie-breaker' else ())+(timing if rank=='Tie-breaker' else ())
     return sorted(rows,key=key,reverse=True)
 
 def select(addon,rows):return order(addon,[row for row in rows if allows(addon,row)])

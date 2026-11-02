@@ -1,3 +1,6 @@
+0.12.0
+Background TheIntroDB / IntroDB intro and outro lookups, pinned episode/runtime matching, bounded offline caches and provider budgets. Prefer close known file runtime matches without probing streams; show timing provenance and unverified suggestions separately. Per-release corrected/confirmed times; labelled chapters and existing show/timing fallbacks preserved.
+
 0.11.1
 Remote-friendly Next episode prompts (chapters, percentage or seconds remaining), labelled-chapter Skip Intro and persistent per-show intro ranges. New-show and per-show toggles, owned-playback checks and aired episode/season navigation; existing playback mode preserved.
 

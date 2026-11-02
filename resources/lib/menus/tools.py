@@ -7,6 +7,7 @@ from resources.lib.constants import (
 
 
 def show(nav, addon):
+    nav.add_action('Current episode intro / outro timings','timing_status')
     nav.add_folder('Episode controls / Saved intro presets','episode_settings')
     nav.add_action("Open MDM Flix Settings", ACTION_OPEN_SETTINGS)
     nav.add_action("Provider Settings", ACTION_PROVIDER_SETTINGS)

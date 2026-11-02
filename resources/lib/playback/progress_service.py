@@ -105,6 +105,8 @@ def run(addon):
     observer=Observer(addon);monitor=xbmc.Monitor()
     from resources.lib.playback.episode_controls import Controls
     controls=Controls(addon)
+    from resources.lib.playback.timing_service import start
+    timing_worker=start(addon,monitor)
     try:
         while not monitor.waitForAbort(1):
             observer.tick();controls.tick()

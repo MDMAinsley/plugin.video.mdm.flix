@@ -70,7 +70,7 @@ INTRO={'intro','opening','opening credits','opening titles','title sequence','op
 CREDITS={'credits','end credits','closing credits','ending credits','outro','ending','ed'}
 
 
-def intro_range(config,chapters,duration):
+def intro_range(config,chapters,duration,external=None):
     if not config['enabled'] or not config['intro_enabled'] or duration<60:return None
     if config['intro_mode']=='Off':return None
     if config['intro_mode']=='Chapters' or config.get('prefer_chapters',True):
@@ -78,18 +78,22 @@ def intro_range(config,chapters,duration):
             end=chapters[index+1][0]
             if named(name,INTRO) and 0<=start<min(900,duration*.5) and 3<=end-start<=600 and end<duration-30:
                 return start,end
+    if external and (config['intro_mode']!='Custom' or config.get('prefer_chapters',True)):
+        start,end=external
+        if 0<=start<end<duration-30 and 3<=end-start<=600:return start,end
     # A saved range is the explicit fallback when the file lacks labelled chapters.
     start,end=config['start'],config['end']
     if 0<=start<end and end-start<=600 and end<duration-30:return start,end
     return None
 
 
-def next_at(config,chapters,duration):
+def next_at(config,chapters,duration,external=None):
     if not config['enabled'] or not config['next_enabled'] or duration<60:return None
     mode=config['next_mode']
     if mode=='Chapters' or config.get('prefer_chapters',True):
         for start,name in chapters:
             if named(name,CREDITS) and duration*.5<=start<=duration-3:return start
+        if external is not None and duration*.5<=external<=duration-3:return external
         if mode=='Chapters':mode='Seconds from end'
     if mode=='Watch percentage':return duration*config['percent']/100
     # Never offer Next episode in the opening half of a short file.

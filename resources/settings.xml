@@ -10,6 +10,7 @@
     <setting id="progress_enabled" type="bool" label="Keep Continue Watching and watched status on this device" default="true" />
   </category>
   <category label="Episode controls">
+    <setting id="episode_timing_lookup" type="bool" label="Use background intro/outro timing lookups" default="true" />
     <setting id="episode_next_enabled" type="bool" label="Show Next episode prompt" default="true" />
     <setting id="episode_prefer_chapters" type="bool" label="Prefer labelled chapters; use chosen timings as fallback" default="true" />
     <setting id="episode_next_mode" type="select" label="Next episode trigger" values="Chapters|Watch percentage|Seconds from end" default="Chapters" />
@@ -37,6 +38,7 @@
     <setting id="device_artwork" type="select" label="Catalogue artwork" default="Standard" values="Standard|Light" />
   </category>
   <category label="Connection / file size">
+    <setting id="device_timing_priority" type="select" label="Intro runtime-match priority (known file runtimes only)" values="Off|Tie-breaker|Prefer runtime match" default="Prefer runtime match" />
     <setting id="device_chapter_priority" type="select" label="Known chapter priority (reported / previously played only)" values="Off|Tie-breaker|Prefer known chapters" default="Tie-breaker" />
     <setting id="device_connection_mbps" type="text" label="Connection speed Mbps (0 = off; max 10000)" default="0" />
     <setting id="device_max_size_gib" type="text" label="Maximum reported size GiB (0 = unlimited; max 10000)" default="0" />

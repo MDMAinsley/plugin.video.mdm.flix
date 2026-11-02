@@ -42,6 +42,9 @@ def stamp(listitem):
     from resources.lib.playback.chapter_facts import fingerprint
     chapter_key=fingerprint(row)
     if chapter_key:payload['chapter_key']=chapter_key
+    from resources.lib.playback.timing_rules import identity
+    timing=identity(row.get('extra',{}).get('item'))
+    if timing:payload['timing']=timing
     listitem.setProperty(PROPERTY,json.dumps(payload,ensure_ascii=False))
 
 def read(listitem):
@@ -57,5 +60,8 @@ def read(listitem):
         result=dict(token=value['token'],item=clean(value.get('item')),resume=resume)
         chapter_key=value.get('chapter_key')
         if isinstance(chapter_key,str) and re.fullmatch('[0-9a-f]{64}',chapter_key):result['chapter_key']=chapter_key
+        from resources.lib.playback.timing_rules import clean_identity
+        timing=clean_identity(value.get('timing'))
+        if timing and result['item']['media_type']=='episode' and all(timing[k]==result['item'][k] for k in ('media_type','tmdb_id','season','episode')):result['timing']=timing
         return result
     except (ValueError,TypeError,ProgressError):return None

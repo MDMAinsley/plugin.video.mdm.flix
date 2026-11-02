@@ -32,10 +32,17 @@ def load(addon, core, params):
     item['extra']={'aliases':aliases}
     if is_episode:
         season, episode = number(params.get('season')), number(params.get('episode'),1)
-        episode_data = client.request('tv/{}/season/{}/episode/{}'.format(tmdb_id,season,episode), {'language':'en-US'},ttl=3600)
+        episode_data = client.request('tv/{}/season/{}/episode/{}'.format(tmdb_id,season,episode), {'language':'en-US','append_to_response':'external_ids'},ttl=3600)
         episode_title=episode_data.get('name')
         episode_title=episode_title if isinstance(episode_title,str) and episode_title else 'Episode {}'.format(episode)
         item.update(tvshowtitle=title, title=episode_title, season=season,episode=episode)
+        episode_external=episode_data.get('external_ids') or {}
+        show_external=external if isinstance(external,dict) else {}
+        from resources.lib.playback.timing_rules import positive
+        item['extra']['timing_identity']={}
+        if imdb:item['extra']['timing_identity']['imdb_id']=imdb
+        for name,value in (('tvdb_id',show_external.get('tvdb_id')),('tvdb_episode_id',episode_external.get('tvdb_id') if isinstance(episode_external,dict) else None)):
+            if positive(value):item['extra']['timing_identity'][name]=value
     minutes=(episode_data if is_episode else data).get('runtime')
     if type(minutes) in (int,float) and 0<minutes<=1440:
         item['duration_seconds']=minutes*60

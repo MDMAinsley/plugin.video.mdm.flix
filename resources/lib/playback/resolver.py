@@ -18,12 +18,14 @@ def configured(addon):
 def search(addon,core,log,params):
     configured(addon)
     item=load(addon,core,params)
-    rows=sort_sources(ProviderManager(addon,core,log).search_sources(item),addon)
+    from resources.lib.playback.timing_service import enqueue
+    enqueue(addon,item)
+    rows=ProviderManager(addon,core,log).search_sources(item)
     for row in rows:
         row['extra']=dict(row.get('extra') or {})
         row['extra']['item']=item
         row['_progress_mode']=params.get('resume_mode') if params.get('resume_mode') in ('resume','restart') else ''
-    return rows
+    return sort_sources(rows,addon)
 
 
 def show_sources(nav,addon,core,log,params):
