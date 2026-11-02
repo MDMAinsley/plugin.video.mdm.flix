@@ -5,6 +5,18 @@ from mdmlink import api
 from resources.lib.kodi_addons import get_addon
 from resources.lib.playback.errors import PlaybackError
 
+class LinkPolicy:
+    """Keep Flix-only ordering out of Link's older enum validation.
+
+    Flix has already ordered the rows. Link still enforces every original
+    quality, size and connection setting when resolving the selected source.
+    """
+    def __init__(self,addon):self.addon=addon
+    def getSetting(self,key):
+        value=self.addon.getSetting(key)
+        return 'Quality' if key=='device_source_order' and value=='IntroDB match' else value
+    def __getattr__(self,key):return getattr(self.addon,key)
+
 class MDMLinkProvider:
     provider_id='mdm_link'
     name='MDM Link'
@@ -35,4 +47,4 @@ class MDMLinkProvider:
 
     def resolve_source(self,source,addon=None,progress=None,monitor=None,choose=None):
         self.configured()
-        return api.resolve(self.addon,source,progress,monitor,choose,policy_addon=addon)
+        return api.resolve(self.addon,source,progress,monitor,choose,policy_addon=LinkPolicy(addon) if addon else None)

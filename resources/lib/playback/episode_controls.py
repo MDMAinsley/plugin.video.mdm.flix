@@ -131,7 +131,7 @@ class Controls:
                         rows=store.data(self.timing)[0] if timing_service.enabled(self.addon) else []
                         for kind in ('intro','outro'):
                             matched=store.confirmed(self.chapter_key,duration,kind) if self.chapter_key else None
-                            if matched is None:matched=timing_rules.match(rows,duration,kind)[0]
+                            if matched is None:matched=timing_rules.choose(rows,duration,kind,timing_rules.policy(self.addon))[0]
                             if kind=='intro':self.external_intro=matched
                             else:self.external_outro=matched
                     except TimingError:pass
@@ -158,6 +158,7 @@ class Controls:
                 chapter_range=intro_range(dict(config,start=0,end=0),self.chapters,duration)
                 matched=bool(external and intro==external and intro!=chapter_range)
                 source=self.external_intro['provider'] if matched else 'File chapters' if intro==chapter_range else 'Saved show timing'
+                if matched and self.external_intro.get('unverified'):source+=' · unverified'
                 online=matched and source!='Your confirmed timing'
                 self.prompt('intro','Opening titles · '+source,'Skip intro',lambda token:self.skip(token,intro[1]),position,duration,intro[1],matched,online);return
             external_end=self.external_outro['range'][0] if self.external_outro else None
@@ -165,6 +166,7 @@ class Controls:
             if trigger is not None and 'next' not in self.shown and trigger<=position<duration-1:
                 matched=external_end is not None and trigger==external_end
                 title='Next episode · '+self.external_outro['provider'] if matched else 'Ready for the next episode?'
+                if matched and self.external_outro.get('unverified'):title+=' · unverified'
                 self.prompt('next',title,'Next episode',self.next,position,duration,runtime_matched=matched,online=matched and self.external_outro['provider']!='Your confirmed timing')
         except (EpisodeError,RuntimeError):
             # Episode assistance must never stop playback or the progress observer.

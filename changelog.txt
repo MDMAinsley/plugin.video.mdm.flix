@@ -1,3 +1,6 @@
+0.13.0
+Best-available intro/outro fallback from either timing service, with unverified prompts and optional Strict matches. New IntroDB match source order compares available reported/observed file runtimes with timing runtimes after size and quality filters. Missing runtimes remain unknown; existing chapters and local corrections retain priority.
+
 0.12.0
 Background TheIntroDB / IntroDB intro and outro lookups, pinned episode/runtime matching, bounded offline caches and provider budgets. Prefer close known file runtime matches without probing streams; show timing provenance and unverified suggestions separately. Per-release corrected/confirmed times; labelled chapters and existing show/timing fallbacks preserved.
 

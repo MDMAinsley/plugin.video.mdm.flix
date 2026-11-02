@@ -141,3 +141,42 @@ def source_duration(row):
     extra=row.get('extra') or {}
     # Catalogue runtime and pack duration are deliberately excluded.
     return number(extra.get('file_duration_seconds'),60)
+
+
+def policy(addon):
+    value=addon.getSetting('episode_timing_policy')
+    return 'Best available' if value in ('','Best available') else 'Strict matches'
+
+
+def fallback_interval(row,duration):
+    """Next episode needs a valid outro start, not an invented EOF runtime."""
+    bounds=interval(row,duration)
+    if bounds:return bounds
+    if not isinstance(row,dict) or row.get('kind')!='outro':return None
+    length=number(duration,60);start=number(row.get('start'));end=number(row.get('end'))
+    if length and start is not None and end is not None and length*.5<=start<=length-3 and end>length and 3<=end-start<=900:
+        return start,length
+    return None
+
+
+def choose(rows,duration,kind,mode='Best available'):
+    chosen,reason=match(rows,duration,kind)
+    if chosen:return dict(chosen,unverified=False),reason
+    if mode!='Best available':return None,reason
+    duration=number(duration,60)
+    if not duration:return None,'Actual playing runtime unavailable'
+    options=[]
+    for row in rows:
+        if not isinstance(row,dict) or row.get('kind')!=kind:continue
+        bounds=fallback_interval(row,duration)
+        if not bounds:continue
+        runtime=number(row.get('runtime'),60);delta=abs(runtime-duration) if runtime else None
+        confidence=number(row.get('confidence'),0,1) or 0
+        count=row.get('count');count=count if type(count) is int and count>=0 else 0
+        # Known release duration first, closest to the actual file; unknown
+        # runtime candidates use the available confidence/report information.
+        score=(runtime is None,delta if delta is not None else 0,-confidence,-count,not row.get('pinned',False))
+        options.append((score,row,bounds,delta))
+    if not options:return None,'No usable intro/outro timing hit'
+    options.sort(key=lambda entry:entry[0]);_,row,bounds,delta=options[0]
+    return dict(row,range=bounds,delta=delta,unverified=True),'Best available fallback (unverified)'

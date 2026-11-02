@@ -8,6 +8,7 @@ from resources.lib.playback import timing_rules as rules
 from resources.lib.playback.timing_store import Store,TimingError
 
 ENDPOINTS={'TheIntroDB':'https://api.theintrodb.org/v4/media','IntroDB':'https://api.introdb.app/segments'}
+DECORATIONS=('timing_match','timing_delta_seconds','timing_available','timing_unverified','timing_reference_runtime','timing_runtime_known')
 
 
 class FetchError(Exception):
@@ -109,7 +110,7 @@ def start(addon,monitor):
 
 def annotate_sources(addon,rows):
     """Cached metadata only. Unknown file runtime gets no timing score."""
-    rows=[dict(row,extra={k:v for k,v in (row.get('extra') or {}).items() if k not in ('timing_match','timing_delta_seconds')}) for row in rows]
+    rows=[dict(row,extra={k:v for k,v in (row.get('extra') or {}).items() if k not in DECORATIONS}) for row in rows]
     if not enabled(addon):return rows
     try:
         from resources.lib.playback.chapter_facts import fingerprint
@@ -117,15 +118,25 @@ def annotate_sources(addon,rows):
         for row in rows:
             extra=dict(row.get('extra') or {});item=rules.identity(extra.get('item'));identity=fingerprint(row)
             duration=observed.get(identity) or rules.source_duration(row)
-            if duration:extra['file_duration_seconds']=duration
+            if duration:
+                extra['file_duration_seconds']=duration
+                extra['file_duration_origin']='observed' if identity in observed else 'reported'
             # Clear old decorations if the user disabled the feature or changed
             # sources/settings; never trust a scraped timing-match assertion.
             extra.pop('timing_match',None);extra.pop('timing_delta_seconds',None)
-            if item and duration:
+            if item:
                 cache_key=rules.key(item)
                 if cache_key not in memo:memo[cache_key]=store.data(item)[0]
-                match,_=rules.match(memo[cache_key],duration,'intro')
-                if match:extra.update(timing_match=True,timing_delta_seconds=match['delta'])
+                candidates=memo[cache_key]
+                if any(row.get('kind')=='intro' for row in candidates):extra['timing_available']=True
+                if duration:
+                    match,_=rules.choose(candidates,duration,'intro',rules.policy(addon))
+                    if match:
+                        extra['timing_unverified']=bool(match.get('unverified'))
+                        runtime=rules.number(match.get('runtime'),60)
+                        if runtime:
+                            extra.update(timing_runtime_known=True,timing_reference_runtime=runtime,timing_delta_seconds=abs(runtime-duration))
+                            if not match.get('unverified'):extra['timing_match']=True
             result.append(dict(row,extra=extra))
         return result
     except TimingError:return rows

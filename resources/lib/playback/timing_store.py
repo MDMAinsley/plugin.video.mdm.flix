@@ -102,7 +102,7 @@ class Store:
     def durations(self):
         with self.db() as db:return dict(db.execute('SELECT identity,duration FROM facts WHERE updated>?',(time.time()-90*86400,)))
     def confirm(self,identity,row,duration):
-        bounds=rules.interval(row,duration)
+        bounds=rules.fallback_interval(row,duration)
         if not bounds or not isinstance(identity,str) or not re.fullmatch('[0-9a-f]{64}',identity):raise TimingError('This suggestion does not fit the playing file.')
         value=dict(kind=row['kind'],start=bounds[0],end=bounds[1],provider='Your confirmed timing')
         with self.db() as db:

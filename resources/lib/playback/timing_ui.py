@@ -33,17 +33,20 @@ def same(context):
     return bool(now and now['token']==context['token'] and now['fingerprint']==context['fingerprint'] and abs(now['duration']-context['duration'])<=5)
 
 
-def details(item,rows,status,duration):
+def details(item,rows,status,duration,mode='Strict matches'):
     lines=['{} · S{:02d}E{:02d}'.format(item['title'],item['season'],item['episode']),
            'File runtime: '+(stamp(duration) if duration else 'unknown (not taken from TMDB)'),
-           'Labelled file chapters remain first when preferred. Database results are runtime matches, not proof of an identical edit.']
+           'Labelled file chapters remain first when preferred. Runtime matching is not proof of an identical edit.',
+           'Timing policy: '+mode+'. Best available uses a valid service hit even without release-runtime evidence; fallback timings are unverified.']
     lines.extend(status or ['Background lookup queued; check again in a few seconds.'])
     for kind in ('intro','outro'):
-        chosen,reason=rules.match(rows,duration,kind)
-        lines.append(kind.title()+': '+(chosen['provider']+' · '+stamp(chosen['start'])+'–'+stamp(chosen['end']) if chosen else reason))
+        chosen,reason=rules.choose(rows,duration,kind,mode)
+        lines.append(kind.title()+': '+(chosen['provider']+' · '+stamp(chosen['start'])+'–'+stamp(chosen['end'])+' · '+reason if chosen else reason))
     for row in rows:
-        fits=rules.interval(row,duration) if duration else None
-        lines.append('{} {}: {}–{} · {} reports · release runtime {}{}'.format(row['provider'],row['kind'],stamp(row['start']),stamp(row['end']),row['count'],stamp(row['runtime']) if row['runtime'] else 'unknown',' · outside this file' if duration and not fits else ''))
+        fits=rules.fallback_interval(row,duration) if duration else None
+        note=' · outside this file' if duration and not fits else ''
+        if duration and fits and row['kind']=='outro' and row.get('end') is not None and row['end']>duration:note=' · outro end past EOF; Next episode uses its start only'
+        lines.append('{} {}: {}–{} · {} reports · release runtime {}{}'.format(row['provider'],row['kind'],stamp(row['start']),stamp(row['end']),row['count'],stamp(row['runtime']) if row['runtime'] else 'unknown',note))
     return '\n\n'.join(lines)
 
 
@@ -65,11 +68,11 @@ def action(addon,core,params):
             rows,status=store.data(item)
             if not timing_service.enabled(addon):status=['Online timing lookups are off. Confirmed local timings and show presets remain separate.']
             labels=['Timing information / why a suggestion is not used','Check again','Save corrected intro times for this playing file…','Clear confirmed timings for this playing file']
-            suggestions=[row for row in rows if duration and rules.interval(row,duration)]
+            suggestions=[row for row in rows if duration and rules.fallback_interval(row,duration)]
             labels.extend('Review '+row['kind']+' suggestion: '+stamp(row['start'])+'–'+stamp(row['end'])+' · '+row['provider'] for row in suggestions)
             selected=xbmcgui.Dialog().select('Intro / outro timings',labels)
             if selected<0:return
-            if selected==0:xbmcgui.Dialog().textviewer('Intro / outro timings',details(item,rows,status,duration));continue
+            if selected==0:xbmcgui.Dialog().textviewer('Intro / outro timings',details(item,rows,status,duration,rules.policy(addon)));continue
             if selected==1:
                 timing_service.enqueue(addon,item,duration);continue
             if not context or not same(context):

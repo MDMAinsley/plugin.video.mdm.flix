@@ -22,7 +22,7 @@ def validate_settings(addon):
         value=setting(addon,key,'0')
         if not isinstance(value,str) or not re.fullmatch(r'\d{1,5}(?:\.\d{1,3})?',value) or not 0<=float(value)<=10000:
             raise ValueError('Invalid connection/file-size preferences. Use numbers from 0 to 10000, with up to three decimal places. Open addon settings to correct them.')
-    for key,options,default in (('device_timing_priority',('Off','Tie-breaker','Prefer runtime match'),'Prefer runtime match'),('device_chapter_priority',('Off','Tie-breaker','Prefer known chapters'),'Tie-breaker'),('device_source_order',('Quality','Connection','Smallest'),'Quality'),('device_unknown_size',('Show','Hide'),'Show'),('device_slow_sources',('Show','Hide'),'Show'),('device_unknown_bitrate',('Show','Hide'),'Show')):
+    for key,options,default in (('device_timing_priority',('Off','Tie-breaker','Prefer runtime match'),'Prefer runtime match'),('device_chapter_priority',('Off','Tie-breaker','Prefer known chapters'),'Tie-breaker'),('device_source_order',('Quality','Connection','Smallest','IntroDB match'),'Quality'),('device_unknown_size',('Show','Hide'),'Show'),('device_slow_sources',('Show','Hide'),'Show'),('device_unknown_bitrate',('Show','Hide'),'Show')):
         if setting(addon,key,default) not in options:raise ValueError('Invalid source preference. Choose a listed order or Show/Hide option in addon settings.')
 
 def size_gib(row):
@@ -82,12 +82,19 @@ def badge(addon,row):
     state,rate=assessment(addon,row)
     chapters=' · Chapters known' if (row.get('extra') or {}).get('has_chapters') is True else ''
     timings=' · Intro runtime match' if (row.get('extra') or {}).get('timing_match') is True and setting(addon,'episode_timing_lookup','true')!='false' else ''
+    extra=row.get('extra') or {}
+    if not timings and extra.get('timing_available') is True and setting(addon,'episode_timing_lookup','true')!='false':
+        timings=' · IntroDB nearest runtime · unverified' if extra.get('timing_runtime_known') is True else ' · IntroDB runtime unknown'
     return chapters+timings+('' if state=='Off' else ' · '+state+(' ~{:.1f} Mbps'.format(rate) if rate is not None else ''))
 
 def order(addon,rows):
     mode=setting(addon,'device_source_order','Quality')
     def base_key(row):
         paid=bool(row.get('debrid'));quality=quality_score(row);size=size_gib(row)
+        if mode=='IntroDB match':
+            extra=row.get('extra') or {};delta=extra.get('timing_delta_seconds')
+            known=extra.get('timing_runtime_known') is True and type(delta) in (int,float) and math.isfinite(delta) and 0<=delta<=86400 and setting(addon,'episode_timing_lookup','true')!='false'
+            return paid,known,-delta if known else 0,quality,size is not None,-size if size is not None else 0
         if mode=='Smallest':return paid,size is not None,-size if size is not None else 0,quality
         if mode=='Connection' and decimal(addon,'device_connection_mbps',10000):
             state,rate=assessment(addon,row)
@@ -95,6 +102,7 @@ def order(addon,rows):
         return paid,quality
     def key(row):
         base=base_key(row);priority=setting(addon,'device_chapter_priority','Tie-breaker')
+        if mode=='IntroDB match':return base
         known=(row.get('extra') or {}).get('has_chapters') is True
         extra=row.get('extra') or {};matched=extra.get('timing_match') is True and setting(addon,'episode_timing_lookup','true')!='false'
         delta=extra.get('timing_delta_seconds');delta=delta if type(delta) in (int,float) and math.isfinite(delta) and 0<=delta<=5 else 5
@@ -109,6 +117,12 @@ def note(addon,row):
     state,rate=assessment(addon,row);size=size_gib(row)
     fields=['{:.2f} GiB (reported)'.format(size) if size is not None else 'Size unknown']
     extra=row.get('extra');extra=extra if isinstance(extra,dict) else {}
+    if extra.get('timing_available') is True and setting(addon,'episode_timing_lookup','true')!='false':
+        duration=number(extra.get('file_duration_seconds'),86400)
+        if duration:fields.append('File runtime {:.1f}s ({})'.format(duration,extra.get('file_duration_origin','reported')))
+        else:fields.append('File runtime unknown; no nearest-runtime ranking possible')
+        reference=number(extra.get('timing_reference_runtime'),86400)
+        if reference and duration:fields.append('Timing runtime {:.1f}s; difference {:.1f}s{}'.format(reference,abs(duration-reference),' (unverified)' if extra.get('timing_unverified') else ''))
     if extra.get('size_scope')=='package':fields.append('torrent/package size; selected file may be smaller')
     if state!='Off':fields.append(('~{:.1f} Mbps average · '.format(rate) if rate is not None else '')+state+' (25% connection reserve)')
     fields.append('Estimate only; bitrate peaks, host speed and buffering can differ.')
