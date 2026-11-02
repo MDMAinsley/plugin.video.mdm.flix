@@ -4,9 +4,11 @@ import os
 import tempfile
 import time
 import uuid
+import re
+import sqlite3
 import xbmcvfs
 from mdmlink import autoplay_context
-from mdmlink.errors import Cancelled,SourceFailure,SourceNotReady,SourcePreparing,AutoplayBudgetExpired
+from mdmlink.errors import PlaybackError,Cancelled,SourceFailure,SourceNotReady,SourcePreparing,AutoplayBudgetExpired
 from resources.lib.playback import timing_rules as r,timing_match as policy
 from resources.lib.playback.match_lookup import Lookup
 from resources.lib.playback.media_metadata import Cache,active
@@ -39,6 +41,46 @@ def read(addon):
         return data if len(raw)<=65536 and data.get('schema')==1 else {}
     except (OSError,ValueError,AttributeError):return {}
 
+def history_path(addon):return os.path.join(os.path.dirname(path(addon)),'timing_match_history.sqlite')
+
+def archive(addon,report):
+    db=None
+    try:
+        raw=json.dumps(report,allow_nan=False)
+        if len(raw)>65536:return
+        os.makedirs(os.path.dirname(history_path(addon)),exist_ok=True)
+        db=sqlite3.connect(history_path(addon),timeout=.2)
+        if db.execute('PRAGMA user_version').fetchone()[0] not in (0,1):return
+        db.execute('CREATE TABLE IF NOT EXISTS reports (run TEXT PRIMARY KEY,value TEXT,updated REAL)');db.execute('PRAGMA user_version=1')
+        db.execute('INSERT OR REPLACE INTO reports VALUES(?,?,?)',(report['run_id'],raw,time.time()))
+        db.execute('DELETE FROM reports WHERE run IN (SELECT run FROM reports ORDER BY updated DESC,run LIMIT -1 OFFSET 20)');db.commit()
+    except (OSError,sqlite3.Error,ValueError,KeyError,TypeError):pass
+    finally:
+        if db:db.close()
+
+def history(addon):
+    db=None
+    try:
+        db=sqlite3.connect('file:'+history_path(addon).replace('\\','/')+'?mode=ro',uri=True,timeout=.2)
+        if db.execute('PRAGMA user_version').fetchone()[0]!=1:return []
+        result=[]
+        for raw, in db.execute('SELECT value FROM reports ORDER BY updated DESC,run LIMIT 20'):
+            if len(raw)<=65536:
+                try:
+                    value=json.loads(raw)
+                    if isinstance(value,dict) and value.get('schema')==1:result.append(value)
+                except ValueError:pass
+        return result
+    except (OSError,sqlite3.Error,ValueError):return []
+    finally:
+        if db:db.close()
+
+def failure_detail(entry,error):
+    code=getattr(error,'ad_error_code',None)
+    if isinstance(code,str) and re.fullmatch(r'[A-Z][A-Z0-9_]{0,63}',code):entry['service_error_code']=code
+    scope=getattr(error,'ad_error_scope',None)
+    if scope in ('source','service'):entry['service_error_scope']=scope
+
 def compare(addon,rows,resolve,cancel=lambda:False,lookup=None,update=lambda message:None,search_seconds=0):
     start=time.monotonic();deadline=start+budget(addon);maximum=limit(addon)
     report=dict(schema=1,run_id=uuid.uuid4().hex[:12],updated_utc=int(time.time()),status='checking',attempted=0,failed=0,not_ready=0,rejected=0,unknown=0,duplicates=0,elapsed_seconds=0,lookup_calls=0,candidates=[],selected=None,search_seconds=round(search_seconds,3),total_seconds=0)
@@ -46,7 +88,7 @@ def compare(addon,rows,resolve,cancel=lambda:False,lookup=None,update=lambda mes
     def finish(status):
         report.update(status=status,elapsed_seconds=round(time.monotonic()-start,3),total_seconds=round(search_seconds+time.monotonic()-start,3),lookup_calls=lookup_obj.calls if lookup_obj else 0)
         report['timing_hits']=len(lookup_obj.rows) if lookup_obj else 0
-        write(addon,report)
+        write(addon,report);archive(addon,report)
     try:
         with autoplay_context.bounded(budget(addon)):
             for source in rows:
@@ -79,10 +121,16 @@ def compare(addon,rows,resolve,cancel=lambda:False,lookup=None,update=lambda mes
                         entry.update(status='mismatch',reason=checked['reason'],runtime=known,cached=True)
                         report['rejected']+=1;continue
                 try:url=resolve(source,attempt=(index,maximum))
-                except SourceNotReady:
+                except SourceNotReady as error:
+                    failure_detail(entry,error)
                     report['not_ready']+=1;entry.update(status='not_ready',reason='release_preparing',seconds=round(time.monotonic()-tick,3));continue
-                except SourceFailure:
+                except SourceFailure as error:
+                    failure_detail(entry,error)
                     report['failed']+=1;entry.update(status='failed',reason='source_failed',seconds=round(time.monotonic()-tick,3));continue
+                except PlaybackError as error:
+                    failure_detail(entry,error)
+                    entry.update(status='stopped',reason='service_error',seconds=round(time.monotonic()-tick,3))
+                    raise
                 if cancel():raise Cancelled('Playback cancelled.')
                 duration=r.source_duration(source) if (source.get('extra') or {}).get('file_duration_origin') in ('header','observed') else None
                 value=Cache(addon).get(identity) if active(addon) else None
@@ -111,6 +159,8 @@ def compare(addon,rows,resolve,cancel=lambda:False,lookup=None,update=lambda mes
         finish('cancelled');raise
     except SourcePreparing:
         finish('preparing');raise
+    except PlaybackError:
+        finish('stopped');raise
     except Exception:
         finish('failed');raise
     from resources.lib import device_policy,connection_policy
@@ -131,7 +181,14 @@ def text(addon):
     for row in report.get('candidates',[]):
         lines.append('#{}: {} · runtime {}s · {} · {:.1f}s'.format(row['candidate'],row['status'],row['runtime'] if row['runtime'] is not None else 'unknown',row['reason'].replace('_',' '),row['seconds']))
         if row.get('rejected_outro_end') is not None:lines.append('Reported outro end {}s exceeds this file.'.format(row['rejected_outro_end']))
+        if row.get('service_error_code'):lines.append('AllDebrid: '+row['service_error_code']+' ('+row.get('service_error_scope','service')+')')
         for kind in ('intro','outro'):
             if row.get(kind):lines.append('{}: {:.1f}–{:.1f}s · {}'.format(kind.title(),row[kind]['start'],row[kind]['end'],row.get('provider') or 'file'))
     lines.append('A bounds/runtime match is not content verification. Unverified means no timing match was established.')
+    recent=history(addon)
+    if recent:
+        lines.append('Recent matching attempts (latest 20 retained):')
+        for previous in recent[:5]:
+            episode=previous.get('episode') or {};codes=[row.get('service_error_code') for row in previous.get('candidates',[]) if row.get('service_error_code')]
+            lines.append('S{}E{} · {} · {} candidates{}'.format(episode.get('season','?'),episode.get('episode','?'),previous.get('status','unknown'),previous.get('attempted',0),' · '+', '.join(codes) if codes else ''))
     return '\n\n'.join(lines)

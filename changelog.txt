@@ -1,3 +1,6 @@
+0.15.1
+Require corrected AllDebrid per-release rejection handling. Retain the latest 20 matching attempts, record safe provider error codes and terminal candidate status so later successful episodes do not erase failed diagnostics.
+
 0.15.0
 Automatic bounded episode stream comparison before Autoplay or Source Select. Measure candidate file runtimes/chapters, compare same-provider intro/outro pairs, reject reported outros beyond EOF and try the next release. Default five candidates / 30 seconds, early stop on strong matches, scoped fresh sources/timings refresh, source fit labels and URL-free matching/speed report. Preserve size/quality limits, debrid order and user cancellation; audio/image detection remains future work.
 
