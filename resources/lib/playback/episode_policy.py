@@ -70,14 +70,23 @@ INTRO={'intro','opening','opening credits','opening titles','title sequence','op
 CREDITS={'credits','end credits','closing credits','ending credits','outro','ending','ed'}
 
 
+def chapter_intro(chapters,duration):
+    """Opening Credits + Title Sequence form one contiguous intro block."""
+    for index,(start,name) in enumerate(chapters[:-1]):
+        if not named(name,INTRO):continue
+        following=index+1
+        while following<len(chapters) and named(chapters[following][1],INTRO):following+=1
+        if following>=len(chapters):return None
+        end=chapters[following][0]
+        if 0<=start<min(900,duration*.5) and 3<=end-start<=600 and end<duration-30:return start,end
+    return None
+
 def intro_range(config,chapters,duration,external=None):
     if not config['enabled'] or not config['intro_enabled'] or duration<60:return None
     if config['intro_mode']=='Off':return None
     if config['intro_mode']=='Chapters' or config.get('prefer_chapters',True):
-        for index,(start,name) in enumerate(chapters[:-1]):
-            end=chapters[index+1][0]
-            if named(name,INTRO) and 0<=start<min(900,duration*.5) and 3<=end-start<=600 and end<duration-30:
-                return start,end
+        block=chapter_intro(chapters,duration)
+        if block:return block
     if external and (config['intro_mode']!='Custom' or config.get('prefer_chapters',True)):
         start,end=external
         if 0<=start<end<duration-30 and 3<=end-start<=600:return start,end

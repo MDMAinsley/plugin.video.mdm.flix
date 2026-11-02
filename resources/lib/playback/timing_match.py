@@ -1,16 +1,13 @@
 """Pure release matching: keep intro/outro from the same service/version."""
 from resources.lib.playback import timing_rules as r
-from resources.lib.playback.episode_policy import INTRO,CREDITS
+from resources.lib.playback.episode_policy import INTRO,CREDITS,chapter_intro
 
 def assess(rows,duration,chapters=(),mode='Best available'):
     duration=r.number(duration,60)
     unknown=dict(status='unknown',score=0,reason='runtime_unknown',intro=None,outro=None,delta=None,provider=None,end_gap=None)
     if not duration:return unknown
-    intro=None;outro=None
+    intro=chapter_intro(chapters,duration);outro=None
     for index,(at,name) in enumerate(chapters):
-        if name in INTRO and index+1<len(chapters):
-            end=chapters[index+1][0]
-            if r.interval(dict(kind='intro',start=at,end=end),duration):intro=(at,end)
         if name in CREDITS and r.interval(dict(kind='outro',start=at,end=None),duration):outro=(at,duration)
     if intro:return dict(unknown,status='chapters',score=120 if outro else 110,reason='labelled_chapters',chapter_intro=intro,chapter_outro=outro)
     groups={}

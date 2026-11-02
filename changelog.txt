@@ -1,3 +1,6 @@
+0.15.2
+Require automatic eligible-file selection during Autoplay/preflight. Merge adjacent labelled opening/title-sequence chapters into one intro range shared by source matching and the skip button.
+
 0.15.1
 Require corrected AllDebrid per-release rejection handling. Retain the latest 20 matching attempts, record safe provider error codes and terminal candidate status so later successful episodes do not erase failed diagnostics.
 
