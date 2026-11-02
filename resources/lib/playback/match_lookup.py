@@ -23,8 +23,8 @@ class Lookup:
             except TimingError:pass
         except (TimingError,OSError,ValueError,TypeError):pass
         return False,None
-    def save(self,provider,rows):
-        try:self.store.save(self.item,provider,rows,'Ready' if rows else 'No usable timing data',7*86400 if rows else 86400)
+    def save(self,provider,rows,status=None):
+        try:self.store.save(self.item,provider,rows,status or ('Ready' if rows else 'No usable timing data'),7*86400 if rows else 86400)
         except TimingError:pass
     def prime(self):
         if not self.item:return []
@@ -33,15 +33,15 @@ class Lookup:
         for provider in ('IntroDB','TheIntroDB'):
             fresh=any(value.startswith(provider+': ') and not value.endswith('expired') for value in self.status)
             if fresh:
-                if provider=='TheIntroDB':self.absent=provider+': No usable timing data' in self.status
+                if provider=='TheIntroDB':self.absent=provider+': No episode data' in self.status
                 continue
             query={k:self.item[k] for k in ('imdb_id','season','episode')} if provider=='IntroDB' and self.item.get('imdb_id') else r.tidb_query(self.item)
             if provider=='IntroDB' and not self.item.get('imdb_id'):continue
-            if provider=='TheIntroDB' and self.item.get('catalog_runtime'):query['duration_ms']=round(self.item['catalog_runtime']*1000)
+            if provider=='TheIntroDB':query['list_versions']='true'
             ok,body=self.call(provider,query)
             if not ok:continue
             if body is None:
-                self.save(provider,[])
+                self.save(provider,[],'No episode data' if provider=='TheIntroDB' else None)
                 if provider=='TheIntroDB':self.absent=True
                 continue
             if not isinstance(body,dict):continue
@@ -49,7 +49,7 @@ class Lookup:
             # A malformed/wrong-episode response must not overwrite a good cache.
             if provider=='TheIntroDB' and not r.tidb_identity(body,self.item):continue
             if provider=='IntroDB' and (body.get('imdb_id')!=self.item.get('imdb_id') or body.get('season')!=self.item['season'] or body.get('episode')!=self.item['episode']):continue
-            self.save(provider,rows)
+            self.save(provider,rows,'Versions available' if provider=='TheIntroDB' and not rows and r.versions(body,self.item) else None)
         return self.read()
     def measured(self,duration):
         self.read()
