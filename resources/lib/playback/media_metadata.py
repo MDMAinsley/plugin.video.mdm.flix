@@ -64,6 +64,15 @@ class Cache:
         except (OSError,sqlite3.Error,ValueError):pass
         finally:
             if db:db.close()
+    def forget_many(self,identities):
+        identities=[key for key in identities if isinstance(key,str) and re.fullmatch('[0-9a-f]{64}',key)][:500]
+        if not identities:return
+        db=None
+        try:
+            db=self.connect();db.executemany('DELETE FROM metadata WHERE identity=?',[(key,) for key in identities]);db.commit()
+        except (OSError,sqlite3.Error,ValueError):pass
+        finally:
+            if db:db.close()
 
 def active(addon):return addon.getSetting('episode_metadata_probe')!='false'
 

@@ -8,7 +8,7 @@ import uuid
 import xbmcvfs
 
 STATUSES = {"resolving", "handoff", "no_sources", "sources_failed", "stopped", "preparing", "budget", "cancelled", "unexpected"}
-COUNTS = {"attempted": 3, "failed": 3, "not_ready": 3, "duplicate_skipped": 10000}
+COUNTS = {"attempted": 8, "failed": 8, "not_ready": 8, "duplicate_skipped": 10000}
 
 
 def path(addon):

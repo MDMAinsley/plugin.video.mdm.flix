@@ -39,13 +39,15 @@ def details(item,rows,status,duration,mode='Strict matches'):
            'Labelled file chapters remain first when preferred. Runtime matching is not proof of an identical edit.',
            'Timing policy: '+mode+'. Best available uses a valid service hit even without release-runtime evidence; fallback timings are unverified.']
     lines.extend(status or ['Background lookup queued; check again in a few seconds.'])
+    from resources.lib.playback.timing_match import assess
+    pair=assess(rows,duration,mode=mode)
     for kind in ('intro','outro'):
-        chosen,reason=rules.choose(rows,duration,kind,mode)
+        chosen=pair.get(kind);reason=pair['reason'].replace('_',' ')
         lines.append(kind.title()+': '+(chosen['provider']+' · '+stamp(chosen['start'])+'–'+stamp(chosen['end'])+' · '+reason if chosen else reason))
     for row in rows:
         fits=rules.fallback_interval(row,duration) if duration else None
         note=' · outside this file' if duration and not fits else ''
-        if duration and fits and row['kind']=='outro' and row.get('end') is not None and row['end']>duration:note=' · outro end past EOF; Next episode uses its start only'
+        if duration and row['kind']=='outro' and row.get('end') is not None and row['end']>duration:note=' · outro past EOF: this timing group is rejected for this file'
         lines.append('{} {}: {}–{} · {} reports · release runtime {}{}'.format(row['provider'],row['kind'],stamp(row['start']),stamp(row['end']),row['count'],stamp(row['runtime']) if row['runtime'] else 'unknown',note))
     return '\n\n'.join(lines)
 
@@ -70,6 +72,8 @@ def action(addon,core,params):
             if context:
                 from resources.lib.playback.media_metadata import description
                 status.append(description(addon,context['fingerprint']))
+            from resources.lib.playback.stream_match import text as match_text
+            status.append(match_text(addon))
             labels=['Timing information / why a suggestion is not used','Check again','Save corrected intro times for this playing file…','Clear confirmed timings for this playing file']
             suggestions=[row for row in rows if duration and rules.fallback_interval(row,duration)]
             labels.extend('Review '+row['kind']+' suggestion: '+stamp(row['start'])+'–'+stamp(row['end'])+' · '+row['provider'] for row in suggestions)

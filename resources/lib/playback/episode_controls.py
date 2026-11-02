@@ -129,9 +129,11 @@ class Controls:
                             store.observe(self.chapter_key,duration);self.observed_duration=duration
                         timing_service.enqueue(self.addon,self.timing,duration)
                         rows=store.data(self.timing)[0] if timing_service.enabled(self.addon) else []
+                        from resources.lib.playback.timing_match import assess
+                        pair=assess(rows,duration,mode=timing_rules.policy(self.addon))
                         for kind in ('intro','outro'):
                             matched=store.confirmed(self.chapter_key,duration,kind) if self.chapter_key else None
-                            if matched is None:matched=timing_rules.choose(rows,duration,kind,timing_rules.policy(self.addon))[0]
+                            if matched is None:matched=pair.get(kind)
                             if kind=='intro':self.external_intro=matched
                             else:self.external_outro=matched
                     except TimingError:pass

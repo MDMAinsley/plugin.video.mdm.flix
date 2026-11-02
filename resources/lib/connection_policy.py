@@ -85,7 +85,8 @@ def badge(addon,row):
     extra=row.get('extra') or {}
     if not timings and extra.get('timing_available') is True and setting(addon,'episode_timing_lookup','true')!='false':
         timings=' · IntroDB nearest runtime · unverified' if extra.get('timing_runtime_known') is True else ' · IntroDB runtime unknown'
-    return chapters+timings+('' if state=='Off' else ' · '+state+(' ~{:.1f} Mbps'.format(rate) if rate is not None else ''))
+    fit={'matched':' · Intro timing fits','chapters':' · Labelled intro chapters','mismatch':' · Timing mismatch','outro_only':' · Outro timing only'}.get(extra.get('timing_fit'),'')
+    return chapters+(fit or timings)+('' if state=='Off' else ' · '+state+(' ~{:.1f} Mbps'.format(rate) if rate is not None else ''))
 
 def order(addon,rows):
     mode=setting(addon,'device_source_order','Quality')

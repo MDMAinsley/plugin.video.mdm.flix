@@ -19,7 +19,7 @@ def identity(item):
     extra=item.get('extra');extra=extra if isinstance(extra,dict) else {}
     ids=extra.get('timing_identity');ids=ids if isinstance(ids,dict) else {}
     result={'tmdb_id':tmdb,'season':season,'episode':episode,'media_type':'episode',
-            'title':str(item.get('title') or 'Episode')[:200], 'catalog_runtime':number(item.get('duration_seconds')) or 0}
+            'title':str(item.get('title') or 'Episode')[:200], 'catalog_runtime':number(item.get('duration_seconds')) or number(item.get('catalog_runtime')) or 0}
     imdb=ids.get('imdb_id') or item.get('imdb_id')
     if isinstance(imdb,str) and re.fullmatch(r'tt[0-9]{5,12}',imdb):result['imdb_id']=imdb
     for name in ('tvdb_id','tvdb_episode_id'):
@@ -119,9 +119,10 @@ def match(rows,duration,kind):
     """Only tight runtime + pinned-episode + supported data; never rescale times."""
     duration=number(duration,60)
     if not duration:return None,'Actual file runtime unknown'
+    blocked={group(row) for row in rows if isinstance(row,dict) and outro_mismatch([row],duration)}
     valid=[]
     for row in rows:
-        if not isinstance(row,dict) or row.get('kind')!=kind:continue
+        if not isinstance(row,dict) or row.get('kind')!=kind or group(row) in blocked:continue
         runtime=number(row.get('runtime'),60)
         bounds=interval(row,duration)
         confidence=number(row.get('confidence'),0,1)
@@ -149,14 +150,19 @@ def policy(addon):
 
 
 def fallback_interval(row,duration):
-    """Next episode needs a valid outro start, not an invented EOF runtime."""
-    bounds=interval(row,duration)
-    if bounds:return bounds
-    if not isinstance(row,dict) or row.get('kind')!='outro':return None
-    length=number(duration,60);start=number(row.get('start'));end=number(row.get('end'))
-    if length and start is not None and end is not None and length*.5<=start<=length-3 and end>length and 3<=end-start<=900:
-        return start,length
-    return None
+    """A reported outro beyond EOF is a mismatch, never truncated to fit."""
+    return interval(row,duration)
+
+def group(row):return row.get('provider') if isinstance(row.get('provider'),str) else 'Unknown',number(row.get('runtime'),60)
+
+def outro_mismatch(rows,duration):
+    length=number(duration,60)
+    if not length:return False
+    for row in rows:
+        if not isinstance(row,dict) or row.get('kind')!='outro':continue
+        start=number(row.get('start'));end=number(row.get('end'))
+        if start is not None and start>=length or end is not None and end>length:return True
+    return False
 
 
 def choose(rows,duration,kind,mode='Best available'):
@@ -165,9 +171,10 @@ def choose(rows,duration,kind,mode='Best available'):
     if mode!='Best available':return None,reason
     duration=number(duration,60)
     if not duration:return None,'Actual playing runtime unavailable'
+    blocked={group(row) for row in rows if isinstance(row,dict) and outro_mismatch([row],duration)}
     options=[]
     for row in rows:
-        if not isinstance(row,dict) or row.get('kind')!=kind:continue
+        if not isinstance(row,dict) or row.get('kind')!=kind or group(row) in blocked:continue
         bounds=fallback_interval(row,duration)
         if not bounds:continue
         runtime=number(row.get('runtime'),60);delta=abs(runtime-duration) if runtime else None

@@ -1,4 +1,5 @@
 import xbmc
+import time
 import xbmcgui
 from resources.lib import connection_policy
 from resources.lib.catalogue.tmdb import CatalogueError
@@ -27,14 +28,38 @@ def search(addon,core,log,params):
         row['_progress_mode']=params.get('resume_mode') if params.get('resume_mode') in ('resume','restart') else ''
     from resources.lib.playback.media_metadata import search_candidates
     monitor=xbmc.Monitor()
-    rows=search_candidates(addon,sort_sources(rows,addon),monitor.abortRequested)
+    from resources.lib.playback.timing_match import enabled
+    rows=sort_sources(rows,addon)
+    if not enabled(addon):rows=search_candidates(addon,rows,monitor.abortRequested)
     if monitor.abortRequested():raise Cancelled("Playback cancelled.")
+    if params.get('refresh')=='1':
+        from resources.lib.playback.media_metadata import Cache
+        from resources.lib.playback.chapter_facts import fingerprint
+        from resources.lib.playback.timing_store import Store,TimingError
+        from resources.lib.playback.timing_rules import identity
+        keys=[fingerprint(row) for row in rows]
+        Cache(addon).forget_many(keys)
+        try:Store(addon).refresh(identity(item),keys)
+        except TimingError:pass
+        for row in rows:
+            extra=dict(row.get('extra') or {})
+            if extra.get('file_duration_origin') in ('header','observed'):
+                extra.pop('file_duration_seconds',None);extra.pop('file_duration_origin',None)
+            row['extra']=extra
     return sort_sources(rows,addon)
 
 
 def show_sources(nav,addon,core,log,params):
     try:
+        started=time.monotonic()
         rows=search(addon,core,log,params)
+        from resources.lib.playback.timing_match import enabled
+        from resources.lib.playback.timing_rules import identity
+        if enabled(addon) and rows and identity((rows[0].get('extra') or {}).get('item')):
+            from resources.lib.playback.stream_match import compare
+            monitor=xbmc.Monitor()
+            compare(addon,rows,lambda source,attempt:resolve(source,addon,core,log,attempt),monitor.abortRequested,search_seconds=time.monotonic()-started)
+            rows=sort_sources(rows,addon)
         if not rows:
             xbmcgui.Dialog().ok('MDM Flix','No sources remain. Check quality, file-size and connection preferences, enabled providers and source mode.')
             nav.end(); return
@@ -70,7 +95,13 @@ def display_sources(nav,saved,addon=None):
         if addon is not None:label+=connection_policy.badge(addon,source)
         note='AllDebrid availability is checked when selected.' if source.get('debrid') else 'Direct free source; availability depends on the source host.'
         if addon is not None:note+='\n'+connection_policy.note(addon,source)
-        nav.add_playable(label,'play',params={'source_id':source_id},info={'plot':'{}\n{}'.format(source['provider_name'],note)})
+        context=[]
+        item=(source.get('extra') or {}).get('item') or {}
+        if item.get('media_type')=='episode':
+            from urllib.parse import urlencode
+            query=urlencode(dict(action='sources',media_type='tv',tmdb_id=item['tmdb_id'],season=item['season'],episode=item['episode'],refresh='1'))
+            context=[('Refresh sources and timings','ActivateWindow(Videos,plugin://plugin.video.mdm.flix/?'+query+',return)'),('Timing match report','RunPlugin(plugin://plugin.video.mdm.flix/?action=matching_report)')]
+        nav.add_playable(label,'play',params={'source_id':source_id},info={'plot':'{}\n{}'.format(source['provider_name'],note)},context_menu=context)
     nav.end('videos')
 
 

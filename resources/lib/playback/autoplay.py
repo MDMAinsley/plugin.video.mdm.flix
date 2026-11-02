@@ -2,6 +2,7 @@
 from resources.lib.playback import resolution_report
 import xbmc
 import xbmcgui
+import time
 from mdmlink import autoplay_context
 from mdmlink.models import magnet_hash
 from mdmlink.errors import PlaybackError, Cancelled, SourceFailure, SourcePreparing, SourceNotReady, AutoplayBudgetExpired
@@ -34,7 +35,27 @@ def run(nav, addon, core, log, params, search, resolve, play_url, failed):
         xbmcgui.Dialog().ok("MDM Flix", message + summary)
     save("resolving")
     try:
+        started=time.monotonic()
         rows = search(addon, core, log, params)
+        from resources.lib.playback import timing_match,stream_match,timing_rules
+        if timing_match.enabled(addon) and rows and timing_rules.identity((rows[0].get('extra') or {}).get('item')):
+            previous=stream_match.read(addon).get('run_id')
+            try:
+                chosen=stream_match.compare(addon,sort_sources(rows,addon),lambda source,attempt:resolve(source,addon,core,log,attempt=attempt),xbmc.Monitor().abortRequested,search_seconds=time.monotonic()-started)
+            finally:
+                latest=stream_match.read(addon)
+                if latest.get('run_id')!=previous:
+                    for key in ('attempted','failed','not_ready'):report[key]=latest.get(key,0)
+                    report['duplicate_skipped']=latest.get('duplicates',0)
+            if not chosen:
+                save('sources_failed')
+                raise PlaybackError('No timing-compatible stream was ready within the comparison limit. Open Timing match report for runtimes/rejections, refresh sources, or choose a source manually.')
+            selected,url,match,match_report=chosen
+            from resources.lib.playback.tracking import source as tracking_source
+            with tracking_source(selected,addon):play_url(url,selected.get('label','MDM Flix'))
+            handed_off=True;save('handoff')
+            if match['score']<70:xbmcgui.Dialog().notification('MDM Flix','Playing an available stream; no intro timing match was established.',xbmcgui.NOTIFICATION_INFO,4000)
+            return
         unique = []; seen = set()
         for row in sort_sources(rows, addon):
             url = row.get("url", "")

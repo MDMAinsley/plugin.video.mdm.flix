@@ -1,3 +1,6 @@
+0.15.0
+Automatic bounded episode stream comparison before Autoplay or Source Select. Measure candidate file runtimes/chapters, compare same-provider intro/outro pairs, reject reported outros beyond EOF and try the next release. Default five candidates / 30 seconds, early stop on strong matches, scoped fresh sources/timings refresh, source fit labels and URL-free matching/speed report. Preserve size/quality limits, debrid order and user cancellation; audio/image detection remains future work.
+
 0.14.0
 Automatically read small MP4/Matroska metadata ranges from the selected episode before playback. Cache real file durations and available chapter names for timing matching; IntroDB match can preflight up to three already-direct free candidates. Bounded reads, cancellation, negative caching and optional toggle; unknown metadata never stops playback. No unselected debrid additions and no guaranteed detection where timings/labelled chapters are absent.
 

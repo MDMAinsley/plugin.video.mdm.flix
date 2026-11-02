@@ -24,6 +24,8 @@ def diagnostics(nav, addon, core):
     from resources.lib.playback.autoplay import diagnostic
     import json
     text += '\n\nLatest Autoplay attempt (fresh file; updated_utc is UTC; handoff is not playback confirmation):\n' + json.dumps(diagnostic(addon), indent=2)
+    from resources.lib.playback.stream_match import text as matching_text
+    text += "\n\n"+matching_text(addon)
     xbmcgui.Dialog().textviewer("MDM Flix diagnostics", text)
     nav.end()
 

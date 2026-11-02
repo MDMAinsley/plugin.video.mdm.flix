@@ -118,6 +118,11 @@ class Router:
             from resources.lib.playback.resolver import play_source
             play_source(self.params.get("source_id", ""), self.addon, self.core, self.log)
 
+        elif action == 'matching_report':
+            import xbmcgui
+            from resources.lib.playback.stream_match import text
+            xbmcgui.Dialog().textviewer('Automatic timing match',text(self.addon))
+
         elif action == 'source_group':
             from resources.lib.playback.resolver import show_group
             show_group(nav,self.params)

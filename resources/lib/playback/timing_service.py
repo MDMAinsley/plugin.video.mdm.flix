@@ -19,11 +19,11 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self,*args,**kwargs):return None
 
 
-def fetch(provider,query):
+def fetch(provider,query,timeout=4):
     url=ENDPOINTS[provider]+'?'+urllib.parse.urlencode(query)
     req=urllib.request.Request(url,headers={'Accept':'application/json','User-Agent':'MDM-Flix-Timings/0.12.0'})
     try:
-        with urllib.request.build_opener(NoRedirect()).open(req,timeout=4) as response:
+        with urllib.request.build_opener(NoRedirect()).open(req,timeout=timeout) as response:
             raw=response.read(262145)
             if len(raw)>262144:raise FetchError('Response too large')
             value=json.loads(raw)

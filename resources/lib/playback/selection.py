@@ -25,7 +25,8 @@ def sort_sources(sources,addon=None):
         if addon.getSetting('device_chapter_priority')!='Off':rows=Facts(addon).annotate(rows)
         from resources.lib.playback.timing_service import annotate_sources
         rows=annotate_sources(addon,rows)
-        return connection_policy.order(addon,rows)
+        from resources.lib.playback.timing_match import order
+        return order(addon,connection_policy.order(addon,rows))
     quality={'4K':500,'2160p':500,'1080p':400,'720p':300,'480p':200,'SD':100,'CAM':10,'Unknown':0}
     # Debrid priority is absolute, then sort by quality within each group.
     return sorted([s for s in sources or [] if usable(s)],key=lambda s:(bool(s.get('debrid')),quality.get(s.get('quality'),0)),reverse=True)

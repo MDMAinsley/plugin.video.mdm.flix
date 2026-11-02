@@ -82,8 +82,28 @@ class Store:
         encoded=json.dumps(rows,allow_nan=False)
         if len(encoded)>65536:raise TimingError('Timing response is too large.')
         with self.db() as db:
+            if provider=='TheIntroDB':
+                db.execute('BEGIN IMMEDIATE')
+                current=db.execute('SELECT value FROM cache WHERE identity=? AND provider=? AND expires>?',(rules.key(item),provider,time.time())).fetchone()
+                if current:
+                    old=json.loads(current[0])
+                    if not isinstance(old,list) or not all(isinstance(row,dict) for row in old):raise TimingError('Invalid timing cache; existing data kept.')
+                    replaced={rules.group(row) for row in rows}
+                    rows=(rows+[row for row in old if rules.group(row) not in replaced])[:60]
+                    encoded=json.dumps(rows,allow_nan=False)
+                    if len(encoded)>65536:raise TimingError('Timing response is too large.')
+                    if rows:status='Ready'
             db.execute('INSERT OR REPLACE INTO cache VALUES(?,?,?,?,?)',(rules.key(item),provider,encoded,time.time()+ttl,status))
             db.execute('DELETE FROM cache WHERE rowid IN (SELECT rowid FROM cache ORDER BY expires DESC LIMIT -1 OFFSET 400)')
+    def refresh(self,item,identities=()):
+        """Expire one episode only; preserve presets, confirmations and budgets."""
+        identity=rules.key(item)
+        if not identity:return
+        with self.db() as db:
+            db.execute('UPDATE cache SET expires=0 WHERE identity=?',(identity,))
+            db.execute('DELETE FROM fetches WHERE identity=?',(identity,))
+            safe=[key for key in identities if isinstance(key,str) and re.fullmatch('[0-9a-f]{64}',key)][:500]
+            db.executemany('DELETE FROM facts WHERE identity=?',[(key,) for key in safe])
     def reserve(self,provider):
         with self.db() as db:
             db.execute('BEGIN IMMEDIATE');now=time.time();day=int(now//86400)

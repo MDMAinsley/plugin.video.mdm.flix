@@ -9,6 +9,7 @@ import struct
 import time
 import urllib.request
 import urllib.error
+from urllib.parse import urljoin,urlsplit
 from resources.lib.playback.files import web_url
 
 class ProbeError(Exception):pass
@@ -42,9 +43,24 @@ class HTTPReader:
         if self.requests>=12 or self.bytes+65536>self.max_bytes:raise ProbeError('budget')
         end=start+65535
         if self.size is not None:end=min(end,self.size-1)
-        req=urllib.request.Request(self.url,headers={'Range':'bytes={}-{}'.format(start,end),'Accept-Encoding':'identity','User-Agent':'MDM-Flix-Metadata/0.14.0'})
-        self.requests+=1
-        with self.opener.open(req,timeout=max(.05,self.deadline-time.monotonic())) as response:
+        response=None
+        for redirect in range(3):
+            self.check()
+            if self.requests>=12:raise ProbeError('budget')
+            req=urllib.request.Request(self.url,headers={'Range':'bytes={}-{}'.format(start,end),'Accept-Encoding':'identity','User-Agent':'MDM-Flix-Metadata/0.15.0'})
+            self.requests+=1
+            try:
+                response=self.opener.open(req,timeout=max(.05,self.deadline-time.monotonic()));break
+            except urllib.error.HTTPError as error:
+                if error.code not in (301,302,303,307,308) or redirect==2:raise
+                location=error.headers.get('Location');error.close()
+                target=urljoin(self.url,location) if location else ''
+                if not web_url(target) or urlsplit(self.url).scheme=='https' and urlsplit(target).scheme!='https':raise ProbeError('redirect')
+                # Only Range/encoding/UA headers exist. No account headers,
+                # cookies or original query parameters are copied to a target.
+                self.url=target
+        if response is None:raise ProbeError('redirect')
+        with response:
             self.check()
             if response.headers.get('Content-Encoding','identity').lower()!='identity':raise ProbeError('encoding')
             match=re.fullmatch(r'bytes (\d+)-(\d+)/(\d+)',response.headers.get('Content-Range',''))

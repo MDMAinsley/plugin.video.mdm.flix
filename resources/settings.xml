@@ -10,6 +10,9 @@
     <setting id="progress_enabled" type="bool" label="Keep Continue Watching and watched status on this device" default="true" />
   </category>
   <category label="Episode controls">
+    <setting id="episode_stream_matching" type="bool" label="Automatically compare episode streams with intro/outro timings" default="true" />
+    <setting id="episode_match_candidates" type="select" label="Maximum streams to compare" values="3|5|8" default="5" />
+    <setting id="episode_match_budget" type="select" label="Stream matching budget (seconds)" values="15|30|45" default="30" />
     <setting id="episode_metadata_probe" type="bool" label="Read video duration and chapters before episode playback" default="true" />
     <setting id="episode_timing_lookup" type="bool" label="Use background intro/outro timing lookups" default="true" />
     <setting id="episode_timing_policy" type="select" label="Timing fallback policy" values="Best available|Strict matches" default="Best available" />
