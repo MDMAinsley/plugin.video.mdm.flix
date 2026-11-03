@@ -34,6 +34,28 @@ def same(context):
     return bool(now and now['token']==context['token'] and now['fingerprint']==context['fingerprint'] and now['audio_file']==context['audio_file'] and abs(now['duration']-context['duration'])<=5)
 
 
+def save_intro(store, context):
+    values = []
+    for label in ('Intro starts (seconds or M:SS)', 'Intro ends (seconds or M:SS)'):
+        raw = xbmcgui.Dialog().input(label, type=xbmcgui.INPUT_ALPHANUM)
+        if raw == '' or not same(context):
+            return
+        values.append(timing(raw))
+    row = dict(kind='intro', start=values[0], end=values[1])
+    store.confirm(context['fingerprint'], row, context['duration'])
+    xbmcgui.Dialog().notification('Intro timings', 'Corrected times saved for this file.')
+
+
+def mark_playing_intro(addon, token):
+    context = playing()
+    if not context or context['token'] != token:
+        return
+    try:
+        save_intro(Store(addon), context)
+    except (TimingError, EpisodeError) as error:
+        xbmcgui.Dialog().ok('Intro timings', str(error))
+
+
 def details(item,rows,status,duration,mode='Strict matches'):
     lines=['{} · S{:02d}E{:02d}'.format(item['title'],item['season'],item['episode']),
            'File runtime: '+(stamp(duration) if duration else 'unknown (not taken from TMDB)'),
@@ -97,15 +119,7 @@ def action(addon,core,params):
             if not context or not same(context):
                 xbmcgui.Dialog().ok('Intro / outro timings','Play this episode before confirming timings for its exact file.');return
             if selected==2:
-                values=[]
-                for label in ('Intro starts (seconds or M:SS)','Intro ends (seconds or M:SS)'):
-                    raw=xbmcgui.Dialog().input(label,type=xbmcgui.INPUT_ALPHANUM)
-                    if raw=='':return
-                    values.append(timing(raw))
-                row=dict(kind='intro',start=values[0],end=values[1])
-                if not same(context):return
-                store.confirm(context['fingerprint'],row,duration)
-                xbmcgui.Dialog().notification('Intro timings','Corrected times saved for this file.');return
+                save_intro(store, context);return
             if selected==3:
                 store.clear_confirmation(context['fingerprint'])
                 key = audio_timing.confirmation_key(context['audio_file'], item)

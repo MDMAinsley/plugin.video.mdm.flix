@@ -60,7 +60,7 @@ class Controls:
         self.shown=set();self.chapters=[];self.chapter_attempts=0;self.chapter_due=0;self.config_due=0
         self.config=None;self.dialog=None;self.closed=False
         self.chapter_key=None
-        self.timing=None;self.external_intro=None;self.external_outro=None;self.observed_duration=0;self.community_intro=[];self.audio_intro=None;self.shared_intro=None;self.audio_hint_signature=None;self.shared_request=None
+        self.timing=None;self.external_intro=None;self.external_outro=None;self.observed_duration=0;self.community_intro=[];self.audio_intro=None;self.shared_intro=None;self.estimated_intro=None;self.audio_hint_signature=None;self.shared_request=None
 
     def dismiss(self):
         if self.dialog:
@@ -80,7 +80,8 @@ class Controls:
             if holder.get('cancelled') or time.monotonic()>=holder['until'] or not self.valid(token):return False
             try:
                 config=configuration(self.addon,Presets(self.addon).get(self.item['tmdb_id']))
-                if not config['enabled'] or not config['intro_enabled' if kind=='intro' else 'next_enabled']:return False
+                if not config['enabled'] or not config['intro_enabled' if kind in ('intro','mark_intro') else 'next_enabled']:return False
+                if kind in ('intro','mark_intro') and config['intro_mode']=='Off':return False
                 at=finite(self.player.getTime());length=finite(self.player.getTotalTime())
                 if runtime_matched and abs(length-duration)>5:return False
                 if online and self.addon.getSetting('episode_timing_lookup')=='false':return False
@@ -96,6 +97,11 @@ class Controls:
         try:self.player.seekTime(end)
         except RuntimeError:xbmcgui.Dialog().notification('MDM Flix','This stream could not skip the intro.')
 
+    def mark_intro(self,token):
+        if not self.valid(token):return
+        from resources.lib.playback.timing_ui import mark_playing_intro
+        mark_playing_intro(self.addon, token)
+
     def next(self,token):
         if not self.valid(token):return
         params=dict(action='episode_next',token=token,tmdb_id=self.item['tmdb_id'],season=self.item['season'],episode=self.item['episode'])
@@ -105,7 +111,7 @@ class Controls:
         token=current_token(self.player)
         if token!=self.token:
             self.dismiss();self.token=None;self.item=None;self.shown=set();self.chapters=[];self.chapter_attempts=0;self.chapter_due=0;self.config_due=0
-            self.timing=None;self.external_intro=None;self.external_outro=None;self.observed_duration=0;self.community_intro=[];self.audio_intro=None;self.shared_intro=None;self.audio_hint_signature=None;self.shared_request=None
+            self.timing=None;self.external_intro=None;self.external_outro=None;self.observed_duration=0;self.community_intro=[];self.audio_intro=None;self.shared_intro=None;self.estimated_intro=None;self.audio_hint_signature=None;self.shared_request=None
             if token:
                 try:candidate=tracking.read(self.player.getPlayingItem())
                 except RuntimeError:candidate=None
@@ -119,7 +125,7 @@ class Controls:
             now=time.monotonic()
             if now>=self.config_due:
                 self.config=configuration(self.addon,Presets(self.addon).get(self.item['tmdb_id']));self.config_due=now+5
-                self.external_intro=None;self.external_outro=None;self.community_intro=[];self.audio_intro=None;self.shared_intro=None
+                self.external_intro=None;self.external_outro=None;self.community_intro=[];self.audio_intro=None;self.shared_intro=None;self.estimated_intro=None
                 if self.timing:
                     from resources.lib.playback.timing_store import Store,TimingError
                     from resources.lib.playback import timing_service,timing_rules
@@ -144,6 +150,8 @@ class Controls:
                             self.addon, digest, self.item, duration, rows, self.audio_hint_signature)
                         self.audio_intro = audio_timing.suggestion(self.addon, digest, self.item, duration)
                         self.community_intro = community_candidates(rows, duration, timing_rules.policy(self.addon))
+                        if timing_rules.policy(self.addon) == 'Best available':
+                            self.estimated_intro = timing_rules.choose(rows, duration, 'intro')[0]
                         for kind in ('intro','outro'):
                             matched=store.confirmed(self.chapter_key,duration,kind) if self.chapter_key else None
                             if matched is None and kind == 'intro' and audio_key:
@@ -180,6 +188,8 @@ class Controls:
             if self.shared_intro and not chapter and not self.external_intro:
                 if not self.shared_intro['unverified'] or timing is None:
                     timing = self.shared_intro
+            if timing is None and self.estimated_intro:
+                timing = dict(self.estimated_intro, unverified=True, online=True)
             external = timing['range'] if timing else None
             intro = intro_range(config, [] if chapter else self.chapters, duration, external)
             if intro and 'intro' not in self.shown and intro[0]<=position<intro[1]-2:
@@ -191,6 +201,11 @@ class Controls:
                 self.prompt('intro','Opening titles · '+source,'Estimated skip intro' if estimated else 'Skip intro',
                             lambda token:self.skip(token,intro[1]),position,duration,intro[1],matched,
                             matched and timing['online']);return
+            if (not intro and 'mark_intro' not in self.shown and self.timing
+                    and config['intro_enabled'] and config['intro_mode']!='Off'
+                    and 30<=position<=min(240,duration*.4)):
+                self.prompt('mark_intro','No intro timing found','Mark intro',
+                            self.mark_intro,position,duration);return
             external_end=self.external_outro['range'][0] if self.external_outro else None
             trigger=next_at(config,self.chapters,duration,external_end)
             if trigger is not None and 'next' not in self.shown and trigger<=position<duration-1:
