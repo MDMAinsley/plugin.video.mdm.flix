@@ -171,6 +171,11 @@ class Router:
             handlers[action](self.addon)
             return
 
+        elif action == "scrape_options":
+            from resources.lib.catalogue.cards import show_scrape_options
+            show_scrape_options(self.params)
+            return
+
         elif action == "title_info":
             from resources.lib.catalogue.cards import show_info
             show_info(self.addon, self.core, self.params)

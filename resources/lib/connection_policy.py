@@ -116,7 +116,9 @@ def select(addon,rows):return order(addon,[row for row in rows if allows(addon,r
 
 def note(addon,row):
     state,rate=assessment(addon,row);size=size_gib(row)
-    fields=['{:.2f} GiB (reported)'.format(size) if size is not None else 'Size unknown']
+    fields = ['Estimated average bitrate: {:.1f} Mbps'.format(rate)
+              if rate is not None else 'Estimated average bitrate: unavailable']
+    fields.append('{:.2f} GiB (reported)'.format(size) if size is not None else 'Size unknown')
     extra=row.get('extra');extra=extra if isinstance(extra,dict) else {}
     if extra.get('timing_available') is True and setting(addon,'episode_timing_lookup','true')!='false':
         duration=number(extra.get('file_duration_seconds'),86400)
@@ -125,6 +127,6 @@ def note(addon,row):
         reference=number(extra.get('timing_reference_runtime'),86400)
         if reference and duration:fields.append('Timing runtime {:.1f}s; difference {:.1f}s{}'.format(reference,abs(duration-reference),' (unverified)' if extra.get('timing_unverified') else ''))
     if extra.get('size_scope')=='package':fields.append('torrent/package size; selected file may be smaller')
-    if state!='Off':fields.append(('~{:.1f} Mbps average · '.format(rate) if rate is not None else '')+state+' (25% connection reserve)')
-    fields.append('Estimate only; bitrate peaks, host speed and buffering can differ.')
+    if state != 'Off' and rate is not None:
+        fields.append(state + ' (25% connection reserve)')
     return ' · '.join(fields)

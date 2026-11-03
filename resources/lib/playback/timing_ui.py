@@ -2,10 +2,10 @@
 import json
 import xbmc
 import xbmcgui
-from resources.lib.playback import timing_rules as rules,timing_service
+from resources.lib.playback import audio_timing, timing_rules as rules,timing_service
 from resources.lib.playback.timing_store import Store,TimingError
-from resources.lib.playback.episode_policy import timing,EpisodeError
-from resources.lib.playback.episode_controls import current_token
+from resources.lib.playback.episode_policy import timing,EpisodeError,chapter_intro,chapter_marks
+from resources.lib.playback.episode_controls import current_token, read_chapters
 from resources.lib.playback.tracking import PROPERTY
 from resources.lib.catalogue.tmdb import CatalogueError,number
 
@@ -24,13 +24,14 @@ def playing(expected=None):
         import re
         if not item or not duration or not isinstance(fingerprint,str) or not re.fullmatch('[0-9a-f]{64}',fingerprint):return None
         if expected and any(item[k]!=expected[k] for k in ('tmdb_id','season','episode')):return None
-        return dict(item=item,token=token,fingerprint=fingerprint,duration=duration)
+        return dict(item=item,token=token,fingerprint=fingerprint,duration=duration,
+                    audio_file=audio_timing.file_digest(player))
     except (ValueError,RuntimeError,AttributeError):return None
 
 
 def same(context):
     now=playing(context['item'])
-    return bool(now and now['token']==context['token'] and now['fingerprint']==context['fingerprint'] and abs(now['duration']-context['duration'])<=5)
+    return bool(now and now['token']==context['token'] and now['fingerprint']==context['fingerprint'] and now['audio_file']==context['audio_file'] and abs(now['duration']-context['duration'])<=5)
 
 
 def details(item,rows,status,duration,mode='Strict matches'):
@@ -76,12 +77,23 @@ def action(addon,core,params):
             status.append(match_text(addon))
             labels=['Timing information / why a suggestion is not used','Check again','Save corrected intro times for this playing file…','Clear confirmed timings for this playing file']
             suggestions=[row for row in rows if duration and rules.fallback_interval(row,duration)]
+            audio = audio_timing.suggestion(addon, context['audio_file'], item, duration) if context else None
+            if audio:
+                suggestions.append(audio)
+            saved_audio = audio_timing.saved_suggestion(addon, item) if not audio else None
             labels.extend('Review '+row['kind']+' suggestion: '+stamp(row['start'])+'–'+stamp(row['end'])+' · '+row['provider'] for row in suggestions)
+            if saved_audio:
+                labels.append('View saved audio intro suggestion')
             selected=xbmcgui.Dialog().select('Intro / outro timings',labels)
             if selected<0:return
             if selected==0:xbmcgui.Dialog().textviewer('Intro / outro timings',details(item,rows,status,duration,rules.policy(addon)));continue
             if selected==1:
                 timing_service.enqueue(addon,item,duration);continue
+            if saved_audio and selected == 4 + len(suggestions):
+                text = 'Audio match: {}–{}. This result is from a previously scanned file. Play the matching file to review it for Skip Intro.'.format(
+                    stamp(saved_audio['start']), stamp(saved_audio['end']))
+                xbmcgui.Dialog().textviewer('Saved audio intro suggestion', text)
+                continue
             if not context or not same(context):
                 xbmcgui.Dialog().ok('Intro / outro timings','Play this episode before confirming timings for its exact file.');return
             if selected==2:
@@ -96,11 +108,26 @@ def action(addon,core,params):
                 xbmcgui.Dialog().notification('Intro timings','Corrected times saved for this file.');return
             if selected==3:
                 store.clear_confirmation(context['fingerprint'])
+                key = audio_timing.confirmation_key(context['audio_file'], item)
+                if key:
+                    store.clear_confirmation(key)
                 xbmcgui.Dialog().notification('Intro timings','Confirmed timings cleared for this file.');return
             if not 0<=selected-4<len(suggestions):return
             row=suggestions[selected-4]
+            if row['provider'] == 'Audio match':
+                chapter_range = chapter_intro(chapter_marks(read_chapters(), duration), duration)
+                if chapter_range and any(abs(value - bound) > 3 for value, bound in
+                                         zip((row['start'], row['end']), chapter_range)):
+                    xbmcgui.Dialog().ok(
+                        'Audio and chapter timings differ',
+                        'Audio suggests {}–{}. File chapters mark {}–{}. Review the scene cut before saving a correction.'.format(
+                            stamp(row['start']), stamp(row['end']), stamp(chapter_range[0]), stamp(chapter_range[1])))
+                    continue
             text='{} suggests {}–{}. Confirm only if you checked that this matches the playing file. This will not change your show preset or submit anything online.'.format(row['provider'],stamp(row['start']),stamp(row['end']))
             if xbmcgui.Dialog().yesno('Use this timing for this file?',text) and same(context):
-                store.confirm(context['fingerprint'],row,duration)
+                key = context['fingerprint']
+                if row['provider'] == 'Audio match':
+                    key = audio_timing.confirmation_key(context['audio_file'], item)
+                store.confirm(key,row,duration)
                 xbmcgui.Dialog().notification('Intro timings','Timing saved for this file.');return
     except (TimingError,EpisodeError,CatalogueError) as error:xbmcgui.Dialog().ok('Intro / outro timings',str(error))

@@ -1,5 +1,6 @@
 """Shared movie/show/episode click semantics across browse/search/home rows."""
 from urllib.parse import urlencode
+import xbmc
 import xbmcgui
 from resources.lib.catalogue.tmdb import TMDB, CatalogueError, number
 
@@ -21,6 +22,7 @@ def add_title(nav, addon, label, media, identifier, artwork=None, info=None,
     context.append(("My Library (show)" if is_episode else "My Library", command("library_manage", media_type=media, tmdb_id=identifier)))
     if media=='tv':context.append(('Episode controls / Intro preset',command('episode_show',tmdb_id=identifier)))
     if is_episode:
+        context.insert(0, ('Scrape options', command('scrape_options', **params)))
         context.append(('Intro / outro timing information',command('timing_status',tmdb_id=identifier,season=season,episode=episode)))
         query=urlencode(dict(params,action='sources',refresh='1'))
         context.append(('Refresh sources and timings','ActivateWindow(Videos,plugin://plugin.video.mdm.flix/?'+query+',return)'))
@@ -35,6 +37,28 @@ def add_title(nav, addon, label, media, identifier, artwork=None, info=None,
         nav.add_playable(label, "autoplay", **common)
     else:
         nav.add_folder(label, "sources", **common)
+
+
+def show_scrape_options(params):
+    try:
+        episode = dict(
+            media_type="tv",
+            tmdb_id=number(params.get("tmdb_id"), 1),
+            season=number(params.get("season")),
+            episode=number(params.get("episode"), 1),
+        )
+    except CatalogueError as error:
+        xbmcgui.Dialog().ok("MDM Flix", str(error))
+        return
+
+    choice = xbmcgui.Dialog().select("Scrape options", ["Autoplay", "Source select"])
+    base = "plugin://plugin.video.mdm.flix/?"
+    if choice == 0:
+        url = base + urlencode(dict(episode, action="autoplay"))
+        xbmc.executebuiltin("PlayMedia(" + url + ")")
+    elif choice == 1:
+        url = base + urlencode(dict(episode, action="sources"))
+        xbmc.executebuiltin("ActivateWindow(Videos," + url + ",return)")
 
 
 def show_info(addon, core, params):
