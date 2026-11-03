@@ -7,6 +7,7 @@ from resources.lib.catalogue.playback_item import load
 from resources.lib.playback.alldebrid import AllDebrid
 from resources.lib.playback.errors import PlaybackError, Cancelled
 from resources.lib.playback.selection import sort_sources
+from resources.lib.playback import scrape_cache
 from resources.lib.playback.player import play_url, failed
 from resources.lib.providers.manager import ProviderManager
 from resources.lib.session import store_sources, get_source, get_sources
@@ -21,7 +22,14 @@ def search(addon,core,log,params):
     item=load(addon,core,params)
     from resources.lib.playback.timing_service import enqueue
     enqueue(addon,item)
-    rows=ProviderManager(addon,core,log).search_sources(item)
+    cache_key=scrape_cache.key(addon,item)
+    refresh=params.get('refresh')=='1'
+    if refresh:scrape_cache.forget(cache_key)
+    rows=None if refresh else scrape_cache.get(cache_key)
+    params['_scrape_cache_hit']=rows is not None
+    if rows is None:
+        rows=ProviderManager(addon,core,log).search_sources(item)
+        if not xbmc.Monitor().abortRequested():scrape_cache.put(cache_key,rows)
     for row in rows:
         row['extra']=dict(row.get('extra') or {})
         row['extra']['item']=item
@@ -32,7 +40,7 @@ def search(addon,core,log,params):
     rows=sort_sources(rows,addon)
     if not enabled(addon):rows=search_candidates(addon,rows,monitor.abortRequested)
     if monitor.abortRequested():raise Cancelled("Playback cancelled.")
-    if params.get('refresh')=='1':
+    if refresh:
         from resources.lib.playback.media_metadata import Cache
         from resources.lib.playback.chapter_facts import fingerprint
         from resources.lib.playback.timing_store import Store,TimingError
@@ -52,10 +60,11 @@ def search(addon,core,log,params):
 def show_sources(nav,addon,core,log,params):
     try:
         started=time.monotonic()
+        params=dict(params)
         rows=search(addon,core,log,params)
         from resources.lib.playback.timing_match import enabled
         from resources.lib.playback.timing_rules import identity
-        if enabled(addon) and rows and identity((rows[0].get('extra') or {}).get('item')):
+        if not params.get('_scrape_cache_hit') and enabled(addon) and rows and identity((rows[0].get('extra') or {}).get('item')):
             from resources.lib.playback.stream_match import compare
             monitor=xbmc.Monitor()
             compare(addon,rows,lambda source,attempt:resolve(source,addon,core,log,attempt),monitor.abortRequested,search_seconds=time.monotonic()-started)
@@ -97,10 +106,14 @@ def display_sources(nav,saved,addon=None):
         if addon is not None:note+='\n'+connection_policy.note(addon,source)
         context=[]
         item=(source.get('extra') or {}).get('item') or {}
-        if item.get('media_type')=='episode':
+        if item.get('media_type') in ('episode','movie'):
             from urllib.parse import urlencode
-            query=urlencode(dict(action='sources',media_type='tv',tmdb_id=item['tmdb_id'],season=item['season'],episode=item['episode'],refresh='1'))
-            context=[('Refresh sources and timings','ActivateWindow(Videos,plugin://plugin.video.mdm.flix/?'+query+',return)'),('Timing match report','RunPlugin(plugin://plugin.video.mdm.flix/?action=matching_report)')]
+            episode=item['media_type']=='episode'
+            params=dict(action='sources',media_type='tv' if episode else 'movie',tmdb_id=item['tmdb_id'],refresh='1')
+            if episode:params.update(season=item['season'],episode=item['episode'])
+            query=urlencode(params)
+            context=[('Refresh sources and timings' if episode else 'Refresh sources','ActivateWindow(Videos,plugin://plugin.video.mdm.flix/?'+query+',return)')]
+            if episode:context.append(('Timing match report','RunPlugin(plugin://plugin.video.mdm.flix/?action=matching_report)'))
         nav.add_playable(label,'play',params={'source_id':source_id},info={'plot':'{}\n{}'.format(source['provider_name'],note)},context_menu=context)
     nav.end('videos')
 

@@ -19,6 +19,8 @@ def _session_path():
 
 
 def clear_sources():
+    from resources.lib.playback.scrape_cache import clear
+    clear()
     try: os.remove(_session_path())
     except OSError: pass
 
