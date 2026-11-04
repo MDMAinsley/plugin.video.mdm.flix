@@ -36,6 +36,22 @@ def request_match(addon, file_id, item):
 def matched_timings(addon, file_id, item, duration):
     if not file_id:
         return {}
+    from resources.lib.playback import shared_catalogue
+    if shared_catalogue.enabled(addon):
+        evidence_path = Path(xbmcvfs.translatePath(addon.getAddonInfo('profile'))) / 'shared_cut_evidence.json'
+        try:
+            with evidence_path.open(encoding='utf8') as stream:
+                raw = stream.read(2049)
+            evidence = json.loads(raw) if len(raw)<=2048 else {}
+            if (evidence.get('schema') == 1 and evidence.get('file_id') == file_id
+                    and all(evidence.get(key)==item[key] for key in ('tmdb_id','season','episode'))
+                    and number(evidence.get('duration'),60) is not None
+                    and abs(evidence['duration']-duration)<=2):
+                result = shared_catalogue.match(addon,item,duration,evidence.get('anchors'))
+                if result:
+                    return result
+        except (OSError,ValueError,TypeError,KeyError,AttributeError):
+            pass
     path = Path(xbmcvfs.translatePath(addon.getAddonInfo('profile'))) / 'shared_timing_match.json'
     try:
         with path.open(encoding='utf8') as stream:
@@ -55,6 +71,8 @@ def matched_timings(addon, file_id, item, duration):
             row = data['markers'].get(kind, {})
             bounds = interval(dict(row, kind=kind), duration)
             tier = row.get('tier')
+            if tier in ('trusted reviewer','community reviewed') and shared_catalogue.cached(addon) is not None:
+                continue
             if bounds and tier in ('trusted reviewer', 'community reviewed', 'software generated'):
                 matches[kind] = dict(kind=kind,start=bounds[0],end=bounds[1],range=bounds, provider='Shared timing · ' + tier,
                                      tier=tier, marker_id=row.get('id'), revision=row.get('revision'),

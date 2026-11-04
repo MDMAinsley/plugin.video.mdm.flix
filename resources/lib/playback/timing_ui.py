@@ -97,6 +97,9 @@ def action(addon,core,params):
                 status.append(description(addon,context['fingerprint']))
             from resources.lib.playback.stream_match import text as match_text
             status.append(match_text(addon))
+            from resources.lib.playback import shared_catalogue
+            catalogue = shared_catalogue.cached(addon)
+            status.append('Shared catalogue: '+(str(len(catalogue['cuts']))+' cached cuts' if catalogue is not None else 'not cached yet'))
             labels=['Timing information / why a suggestion is not used','Check again','Save corrected intro times for this playing file…','Clear confirmed timings for this playing file']
             suggestions=[row for row in rows if duration and rules.fallback_interval(row,duration)]
             audio = audio_timing.suggestion(addon, context['audio_file'], item, duration) if context else None

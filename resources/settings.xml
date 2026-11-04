@@ -15,6 +15,7 @@
     <setting id="episode_match_budget" type="select" label="Stream matching budget (seconds)" values="15|30|45" default="30" />
     <setting id="episode_metadata_probe" type="bool" label="Read video duration and chapters before episode playback" default="true" />
     <setting id="episode_timing_lookup" type="bool" label="Use background intro/outro timing lookups" default="true" />
+    <setting id="episode_shared_catalogue" type="bool" label="Keep a local copy of the shared timing catalogue" default="true" />
     <setting id="episode_timing_policy" type="select" label="Timing fallback policy" values="Best available|Strict matches" default="Best available" />
     <setting id="episode_feedback_prompt" type="bool" label="Offer a local rating after Skip Intro" default="false" />
     <setting type="action" label="Manage local timing feedback" action="RunPlugin(plugin://plugin.video.mdm.flix/?action=timing_feedback&amp;manage=1)" />

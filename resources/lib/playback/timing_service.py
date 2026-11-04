@@ -1,6 +1,7 @@
 """Public timing requests run only in a separate bounded worker, never in tick."""
 import json
 import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -102,8 +103,16 @@ class Worker:
 def start(addon,monitor):
     def run():
         worker=Worker(addon)
+        catalogue_due=0
         while not monitor.waitForAbort(1):
-            try:worker.tick()
+            try:
+                from resources.lib.playback.shared_catalogue import enabled as catalogue_enabled,refresh
+                if not catalogue_enabled(addon):
+                    catalogue_due=0
+                elif time.monotonic()>=catalogue_due:
+                    refresh(addon)
+                    catalogue_due=time.monotonic()+900
+                worker.tick()
             except (TimingError,ValueError,TypeError,KeyError):pass
     thread=threading.Thread(target=run,name='MDM-TimingLookup',daemon=True);thread.start();return thread
 
