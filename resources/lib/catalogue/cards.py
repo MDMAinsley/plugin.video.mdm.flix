@@ -24,6 +24,8 @@ def add_title(nav, addon, label, media, identifier, artwork=None, info=None,
     if is_episode:
         context.insert(0, ('Scrape options', command('scrape_options', **params)))
         context.append(('Mark intro / continue marking',command('timing_mark',kind='intro')))
+        context.append(('Rate intro timing',command('timing_feedback',kind='intro')))
+        context.append(('Rate outro timing',command('timing_feedback',kind='outro')))
         context.append(('Mark outro / continue marking',command('timing_mark',kind='outro')))
         context.append(('Intro / outro timing information',command('timing_status',tmdb_id=identifier,season=season,episode=episode)))
         query=urlencode(dict(params,action='sources',refresh='1'))

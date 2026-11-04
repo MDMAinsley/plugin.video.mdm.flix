@@ -59,7 +59,7 @@ class Controls:
         self.addon=addon;self.player=player or xbmc.Player();self.token=None;self.item=None
         self.shown=set();self.chapters=[];self.chapter_attempts=0;self.chapter_due=0;self.config_due=0
         self.config=None;self.dialog=None;self.closed=False
-        self.chapter_key=None;self.marking_due=0
+        self.chapter_key=None;self.marking_due=0;self.feedback_due=None
         self.timing=None;self.external_intro=None;self.external_outro=None;self.observed_duration=0;self.community_intro=[];self.community_outro=[];self.audio_intro=None;self.shared_intro=None;self.shared_outro=None;self.estimated_intro=None;self.audio_hint_signature=None;self.shared_request=None
 
     def dismiss(self):
@@ -80,8 +80,8 @@ class Controls:
             if holder.get('cancelled') or time.monotonic()>=holder['until'] or not self.valid(token):return False
             try:
                 config=configuration(self.addon,Presets(self.addon).get(self.item['tmdb_id']))
-                if not config['enabled'] or not config['intro_enabled' if kind in ('intro','mark_intro') else 'next_enabled']:return False
-                if kind in ('intro','mark_intro') and config['intro_mode']=='Off':return False
+                if not config['enabled'] or not config['intro_enabled' if kind in ('intro','mark_intro','rate_intro') else 'next_enabled']:return False
+                if kind in ('intro','mark_intro','rate_intro') and config['intro_mode']=='Off':return False
                 at=finite(self.player.getTime());length=finite(self.player.getTotalTime())
                 if runtime_matched and abs(length-duration)>5:return False
                 if online and self.addon.getSetting('episode_timing_lookup')=='false':return False
@@ -94,7 +94,10 @@ class Controls:
 
     def skip(self,token,end):
         if not self.valid(token):return
-        try:self.player.seekTime(end)
+        try:
+            self.player.seekTime(end)
+            if self.addon.getSetting('episode_feedback_prompt')=='true':
+                self.feedback_due=time.monotonic()+3
         except RuntimeError:xbmcgui.Dialog().notification('MDM Flix','This stream could not skip the intro.')
 
     def mark_intro(self,token):
@@ -111,7 +114,7 @@ class Controls:
         token=current_token(self.player)
         if token!=self.token:
             self.dismiss();self.token=None;self.item=None;self.shown=set();self.chapters=[];self.chapter_attempts=0;self.chapter_due=0;self.config_due=0
-            self.timing=None;self.external_intro=None;self.external_outro=None;self.observed_duration=0;self.community_intro=[];self.community_outro=[];self.audio_intro=None;self.shared_intro=None;self.shared_outro=None;self.estimated_intro=None;self.audio_hint_signature=None;self.shared_request=None;self.marking_due=0
+            self.timing=None;self.external_intro=None;self.external_outro=None;self.observed_duration=0;self.community_intro=[];self.community_outro=[];self.audio_intro=None;self.shared_intro=None;self.shared_outro=None;self.estimated_intro=None;self.audio_hint_signature=None;self.shared_request=None;self.marking_due=0;self.feedback_due=None
             if token:
                 try:candidate=tracking.read(self.player.getPlayingItem())
                 except RuntimeError:candidate=None
@@ -171,6 +174,14 @@ class Controls:
                     self.dismiss()
                 else:return
             if xbmc.getCondVisibility('Player.Paused') or not xbmc.getCondVisibility('Window.IsActive(fullscreenvideo)'):return
+            if self.feedback_due is not None and now>=self.feedback_due:
+                self.feedback_due=None
+                if self.addon.getSetting('episode_feedback_prompt')=='true':
+                    def rate_intro(token):
+                        from resources.lib.playback.timing_feedback import panel
+                        panel(self.addon,token,'intro')
+                    self.prompt('rate_intro','Was the intro timing right?','Rate intro timing',
+                                rate_intro,position,duration);return
             # Probe only three times after AV start. Old Kodi may lack the method.
             if self.chapter_attempts<3 and now>=self.chapter_due and (config['prefer_chapters'] or config['intro_mode']=='Chapters' or config['next_mode']=='Chapters'):
                 self.chapters=chapter_marks(read_chapters(),duration);self.chapter_attempts+=1;self.chapter_due=now+10
@@ -192,6 +203,12 @@ class Controls:
                 timing = dict(self.estimated_intro, unverified=True, online=True)
             external = timing['range'] if timing else None
             intro = intro_range(config, [] if chapter else self.chapters, duration, external)
+            from resources.lib.playback.timing_ui import playing
+            from resources.lib.playback import timing_feedback
+            context=playing() if self.timing else None
+            if context and context['token']==self.token and intro:
+                observation=dict(timing or {},kind='intro',start=intro[0],end=intro[1])
+                timing_feedback.remember(context,observation,'intro')
             if intro and 'intro' not in self.shown and intro[0]<=position<intro[1]-2:
                 matched = bool(timing and intro == external)
                 source = timing['provider'] if matched else 'Saved show timing'
@@ -211,7 +228,7 @@ class Controls:
                 def continue_marking(token, kind=kind):
                     from resources.lib.playback.marking import panel
                     panel(self.addon, token, kind)
-                self.prompt('mark_intro','Mark '+kind+' · draft saved','Continue marking',
+                self.prompt('mark_'+kind,'Mark '+kind+' · draft saved','Continue marking',
                             continue_marking,position,duration);return
             if (not active_draft and not intro and 'mark_intro' not in self.shown and self.timing
                     and config['intro_enabled'] and config['intro_mode']!='Off'
@@ -228,6 +245,10 @@ class Controls:
             ending = choose(duration, chapter_end, confirmed_end, self.community_outro,
                             shared=self.shared_outro, kind='outro')
             self.external_outro = ending or self.external_outro
+            if context and context['token']==self.token and self.external_outro:
+                bounds=self.external_outro['range']
+                timing_feedback.remember(context,dict(self.external_outro,kind='outro',
+                    start=bounds[0],end=bounds[1]),'outro')
             trusted_outro = ending and ending.get('tier')=='trusted reviewer'
             external_end=self.external_outro['range'][0] if self.external_outro else None
             trigger=next_at(config,[] if trusted_outro else self.chapters,duration,external_end)

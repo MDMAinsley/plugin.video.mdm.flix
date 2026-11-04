@@ -7,6 +7,7 @@ import xbmcgui
 from resources.lib.playback import timing_rules as rules
 from resources.lib.playback.episode_policy import EpisodeError, finite
 from resources.lib.playback.timing_store import Store, TimingError
+from resources.lib.playback.feedback_store import Feedback
 
 PROPERTY = 'plugin.video.mdm.flix.marking.v1'
 
@@ -89,6 +90,11 @@ def panel(addon, token, kind='intro'):
                     return
                 Store(addon).confirm(context['fingerprint'], row, context['duration'])
                 clear()
+                try:
+                    Feedback(addon).save(context, row, 'correction')
+                except TimingError:
+                    xbmcgui.Dialog().ok('Mark ' + kind, 'Timing saved. Its feedback record could not be saved.')
+                    return
                 xbmcgui.Dialog().notification('Mark ' + kind, 'Timing saved on this device.')
                 return
     except (TimingError, EpisodeError, RuntimeError) as error:

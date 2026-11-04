@@ -53,6 +53,18 @@ class Router:
             from resources.lib.playback.episode_ui import settings
             settings(nav,self.addon)
 
+        elif action == 'timing_feedback':
+            from resources.lib.playback.timing_feedback import panel,manage
+            from resources.lib.playback.timing_ui import playing
+            context=playing()
+            if self.params.get('manage')=='1':
+                manage(self.addon)
+            elif context:
+                panel(self.addon,context['token'],self.params.get('kind','intro'))
+            else:
+                xbmcgui.Dialog().ok('Timing feedback','Start the episode before rating its timing.')
+            return
+
         elif action == 'timing_mark':
             from resources.lib.playback.marking import panel
             from resources.lib.playback.timing_ui import playing
