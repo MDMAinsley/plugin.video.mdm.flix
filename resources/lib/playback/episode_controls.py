@@ -59,8 +59,8 @@ class Controls:
         self.addon=addon;self.player=player or xbmc.Player();self.token=None;self.item=None
         self.shown=set();self.chapters=[];self.chapter_attempts=0;self.chapter_due=0;self.config_due=0
         self.config=None;self.dialog=None;self.closed=False
-        self.chapter_key=None
-        self.timing=None;self.external_intro=None;self.external_outro=None;self.observed_duration=0;self.community_intro=[];self.audio_intro=None;self.shared_intro=None;self.estimated_intro=None;self.audio_hint_signature=None;self.shared_request=None
+        self.chapter_key=None;self.marking_due=0
+        self.timing=None;self.external_intro=None;self.external_outro=None;self.observed_duration=0;self.community_intro=[];self.community_outro=[];self.audio_intro=None;self.shared_intro=None;self.shared_outro=None;self.estimated_intro=None;self.audio_hint_signature=None;self.shared_request=None
 
     def dismiss(self):
         if self.dialog:
@@ -99,8 +99,8 @@ class Controls:
 
     def mark_intro(self,token):
         if not self.valid(token):return
-        from resources.lib.playback.timing_ui import mark_playing_intro
-        mark_playing_intro(self.addon, token)
+        from resources.lib.playback.marking import panel
+        panel(self.addon, token)
 
     def next(self,token):
         if not self.valid(token):return
@@ -111,7 +111,7 @@ class Controls:
         token=current_token(self.player)
         if token!=self.token:
             self.dismiss();self.token=None;self.item=None;self.shown=set();self.chapters=[];self.chapter_attempts=0;self.chapter_due=0;self.config_due=0
-            self.timing=None;self.external_intro=None;self.external_outro=None;self.observed_duration=0;self.community_intro=[];self.audio_intro=None;self.shared_intro=None;self.estimated_intro=None;self.audio_hint_signature=None;self.shared_request=None
+            self.timing=None;self.external_intro=None;self.external_outro=None;self.observed_duration=0;self.community_intro=[];self.community_outro=[];self.audio_intro=None;self.shared_intro=None;self.shared_outro=None;self.estimated_intro=None;self.audio_hint_signature=None;self.shared_request=None;self.marking_due=0
             if token:
                 try:candidate=tracking.read(self.player.getPlayingItem())
                 except RuntimeError:candidate=None
@@ -125,7 +125,7 @@ class Controls:
             now=time.monotonic()
             if now>=self.config_due:
                 self.config=configuration(self.addon,Presets(self.addon).get(self.item['tmdb_id']));self.config_due=now+5
-                self.external_intro=None;self.external_outro=None;self.community_intro=[];self.audio_intro=None;self.shared_intro=None;self.estimated_intro=None
+                self.external_intro=None;self.external_outro=None;self.community_intro=[];self.community_outro=[];self.audio_intro=None;self.shared_intro=None;self.shared_outro=None;self.estimated_intro=None
                 if self.timing:
                     from resources.lib.playback.timing_store import Store,TimingError
                     from resources.lib.playback import timing_service,timing_rules
@@ -146,10 +146,12 @@ class Controls:
                             self.shared_request = digest
                         shared = shared_timing.matched_timings(self.addon, digest, self.item, duration)
                         self.shared_intro = shared.get("intro")
+                        self.shared_outro = shared.get("outro")
                         self.audio_hint_signature = audio_timing.write_search_hint(
                             self.addon, digest, self.item, duration, rows, self.audio_hint_signature)
                         self.audio_intro = audio_timing.suggestion(self.addon, digest, self.item, duration)
                         self.community_intro = community_candidates(rows, duration, timing_rules.policy(self.addon))
+                        self.community_outro = community_candidates(rows, duration, timing_rules.policy(self.addon), 'outro')
                         if timing_rules.policy(self.addon) == 'Best available':
                             self.estimated_intro = timing_rules.choose(rows, duration, 'intro')[0]
                         for kind in ('intro','outro'):
@@ -184,10 +186,8 @@ class Controls:
             from resources.lib.playback.intro_consensus import choose
             from resources.lib.playback.episode_policy import chapter_intro
             chapter = chapter_intro(self.chapters, duration) if config['prefer_chapters'] or config['intro_mode']=='Chapters' else None
-            timing = choose(duration, chapter, self.external_intro, self.community_intro, self.audio_intro)
-            if self.shared_intro and not chapter and not self.external_intro:
-                if not self.shared_intro['unverified'] or timing is None:
-                    timing = self.shared_intro
+            timing = choose(duration, chapter, self.external_intro, self.community_intro,
+                            self.audio_intro, self.shared_intro)
             if timing is None and self.estimated_intro:
                 timing = dict(self.estimated_intro, unverified=True, online=True)
             external = timing['range'] if timing else None
@@ -201,13 +201,36 @@ class Controls:
                 self.prompt('intro','Opening titles · '+source,'Estimated skip intro' if estimated else 'Skip intro',
                             lambda token:self.skip(token,intro[1]),position,duration,intro[1],matched,
                             matched and timing['online']);return
-            if (not intro and 'mark_intro' not in self.shown and self.timing
+            from resources.lib.playback.marking import draft
+            from resources.lib.playback.timing_ui import playing
+            context = playing() if self.timing else None
+            active_draft = draft(context) if context and context['token']==self.token else None
+            if active_draft and now>=self.marking_due:
+                self.marking_due=now+30
+                kind=active_draft['kind']
+                def continue_marking(token, kind=kind):
+                    from resources.lib.playback.marking import panel
+                    panel(self.addon, token, kind)
+                self.prompt('mark_intro','Mark '+kind+' · draft saved','Continue marking',
+                            continue_marking,position,duration);return
+            if (not active_draft and not intro and 'mark_intro' not in self.shown and self.timing
                     and config['intro_enabled'] and config['intro_mode']!='Off'
                     and 30<=position<=min(240,duration*.4)):
                 self.prompt('mark_intro','No intro timing found','Mark intro',
                             self.mark_intro,position,duration);return
+            from resources.lib.playback.episode_policy import CREDITS
+            chapter_end = None
+            if config['prefer_chapters'] or config['next_mode']=='Chapters':
+                chapter_end = next(((at,duration) for at,name in self.chapters
+                                    if name in CREDITS and duration*.5<=at<=duration-3), None)
+            confirmed_end = self.external_outro if (self.external_outro and
+                self.external_outro.get('provider')=='Your confirmed timing') else None
+            ending = choose(duration, chapter_end, confirmed_end, self.community_outro,
+                            shared=self.shared_outro, kind='outro')
+            self.external_outro = ending or self.external_outro
+            trusted_outro = ending and ending.get('tier')=='trusted reviewer'
             external_end=self.external_outro['range'][0] if self.external_outro else None
-            trigger=next_at(config,self.chapters,duration,external_end)
+            trigger=next_at(config,[] if trusted_outro else self.chapters,duration,external_end)
             if trigger is not None and 'next' not in self.shown and trigger<=position<duration-1:
                 matched=external_end is not None and trigger==external_end
                 title='Next episode · '+self.external_outro['provider'] if matched else 'Ready for the next episode?'

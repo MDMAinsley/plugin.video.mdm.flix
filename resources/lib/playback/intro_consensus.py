@@ -4,7 +4,7 @@ from resources.lib.playback import timing_rules as rules
 TOLERANCE = 3
 
 
-def community_candidates(rows, duration, mode):
+def community_candidates(rows, duration, mode, kind='intro'):
     from resources.lib.playback.timing_match import assess
 
     by_provider = {}
@@ -12,15 +12,22 @@ def community_candidates(rows, duration, mode):
         if isinstance(row, dict):
             by_provider.setdefault(rules.group(row)[0], []).append(row)
     return [result for group in by_provider.values()
-            if (result := assess(group, duration, mode=mode)['intro']) is not None]
+            if (result := assess(group, duration, mode=mode)[kind]) is not None]
 
 
-def choose(duration, chapter=None, confirmed=None, community=(), audio=None):
+def choose(duration, chapter=None, confirmed=None, community=(), audio=None, shared=None, kind='intro'):
+    if shared and shared.get('tier') == 'trusted reviewer' and rules.interval(shared, duration):
+        return dict(shared, online=False)
+    if chapter:
+        return dict(range=chapter, provider='File chapters', unverified=False, online=False)
     if confirmed and rules.interval(confirmed, duration):
-        # Preserve the existing labelled-chapter preference for this file.
-        if chapter:
-            return dict(range=chapter, provider='File chapters', unverified=False, online=False)
         return dict(confirmed, unverified=False, online=False)
+    if shared and shared.get('tier') == 'community reviewed' and rules.interval(shared, duration):
+        return dict(shared, online=False)
+    if shared and rules.interval(shared, duration):
+        bounds = rules.interval(shared, duration)
+        community = tuple(community) + (dict(kind=kind, start=bounds[0], end=bounds[1],
+                                            provider=shared['provider'], unverified=True),)
 
     evidence = []
     if chapter:
@@ -62,7 +69,7 @@ def choose(duration, chapter=None, confirmed=None, community=(), audio=None):
     total = sum(entry[2] for entry in best)
     bounds = tuple(round(sum(entry[0][index] * entry[2] for entry in best) / total, 3)
                    for index in (0, 1))
-    if not rules.interval(dict(kind='intro', start=bounds[0], end=bounds[1]), duration):
+    if not rules.interval(dict(kind=kind, start=bounds[0], end=bounds[1]), duration):
         return None
     return dict(range=bounds, provider=best[0][1] if len(best) == 1 else 'Timing agreement',
                 unverified=not chapter and (len(best) == 1 and

@@ -106,8 +106,16 @@ def action(addon,core,params):
             labels.extend('Review '+row['kind']+' suggestion: '+stamp(row['start'])+'–'+stamp(row['end'])+' · '+row['provider'] for row in suggestions)
             if saved_audio:
                 labels.append('View saved audio intro suggestion')
+            marking_index=len(labels)
+            labels.extend(('Mark intro using playback / continue draft','Mark outro using playback / continue draft'))
             selected=xbmcgui.Dialog().select('Intro / outro timings',labels)
             if selected<0:return
+            if selected in (marking_index,marking_index+1):
+                if not context or not same(context):
+                    xbmcgui.Dialog().ok('Mark timing','Start this episode before marking its playing file.');return
+                from resources.lib.playback.marking import panel
+                panel(addon,context['token'],'intro' if selected==marking_index else 'outro')
+                return
             if selected==0:xbmcgui.Dialog().textviewer('Intro / outro timings',details(item,rows,status,duration,rules.policy(addon)));continue
             if selected==1:
                 timing_service.enqueue(addon,item,duration);continue

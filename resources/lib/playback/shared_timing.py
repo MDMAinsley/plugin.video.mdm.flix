@@ -56,8 +56,8 @@ def matched_timings(addon, file_id, item, duration):
             bounds = interval(dict(row, kind=kind), duration)
             tier = row.get('tier')
             if bounds and tier in ('trusted reviewer', 'community reviewed', 'software generated'):
-                matches[kind] = dict(range=bounds, provider='Shared timing · ' + tier,
-                                     unverified=tier == 'software generated', online=False)
+                matches[kind] = dict(kind=kind,start=bounds[0],end=bounds[1],range=bounds, provider='Shared timing · ' + tier,
+                                     tier=tier, unverified=tier == 'software generated', online=False)
         return matches
     except (OSError, ValueError, TypeError, KeyError, AttributeError):
         return {}

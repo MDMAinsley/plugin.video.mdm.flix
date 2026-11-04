@@ -53,6 +53,16 @@ class Router:
             from resources.lib.playback.episode_ui import settings
             settings(nav,self.addon)
 
+        elif action == 'timing_mark':
+            from resources.lib.playback.marking import panel
+            from resources.lib.playback.timing_ui import playing
+            context=playing()
+            if context:
+                panel(self.addon,context['token'],self.params.get('kind','intro'))
+            else:
+                xbmcgui.Dialog().ok('Mark timing','Start the episode before marking its intro or outro.')
+            return
+
         elif action == 'timing_status':
             from resources.lib.playback.timing_ui import action as timing_action
             timing_action(self.addon,self.core,self.params)
