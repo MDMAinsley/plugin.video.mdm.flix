@@ -22,7 +22,7 @@ BASE = 'https://mdmskip.mdmainsley.co.uk'
 HEX = re.compile(r'[0-9a-f]{64}')
 TOKEN = re.compile(r'[A-Za-z0-9_-]{43}')
 CONSENT = 'timing_share_consent_v1'
-NOTICE = ('Share intro/outro timings and ratings for the public MDM Skip catalogue? '
+NOTICE = ('Share intro/outro timings and ratings for the public MDM Skip catalogue on GitHub? '
           'We send episode numbers, runtime, timing ranges and audio fingerprint digests when available. '
           'No name, device details, stream links or raw audio are included. A random contributor key is '
           'kept to prevent repeat votes; the service and hosting provider can see connection information. '
@@ -228,7 +228,7 @@ def deliver(addon, transport=post):
             store.token(token)
         if not enabled(addon):
             return False
-        status, result = transport('/v1/proposals', json.loads(job['body']), token)
+        status, result = transport('/v1/proposals', dict(json.loads(job['body']), operation=job['version']), token)
         if not isinstance(result, dict):
             raise SendError('Invalid submission acknowledgement')
         receipt = result.get('receipt')
@@ -237,6 +237,8 @@ def deliver(addon, transport=post):
                 or state not in ('pending_review', 'pending_cut_verification') or result.get('published') is not False):
             raise SendError('Invalid submission acknowledgement')
         detail = 'Received; awaiting cut verification' if state == 'pending_cut_verification' else 'Received; pending review'
+        if result.get('counted_vote') is True:
+            detail = 'Anonymous rating recorded' + ('; eligible for community totals' if result.get('eligible_for_promotion') is True else '; eligibility pending')
         if store.finish(job, receipt, detail):
             xbmcgui.Dialog().notification('MDM Skip', 'Contribution received for review.')
         return True
@@ -263,7 +265,7 @@ def manage(addon):
         if choice == 0:
             consent(addon, configure=True)
         elif choice == 1:
-            xbmcgui.Dialog().ok('Timing sharing', (detail or 'No contributions yet.')+'\nReceived contributions are held for verification and review. They are not automatically published or counted votes. Turning sharing off stops future uploads; it does not erase entries already received by the service.')
+            xbmcgui.Dialog().ok('Timing sharing', (detail or 'No contributions yet.')+'\nReceived contributions are held for verification and review. They are not automatically published. Ratings count only after matching a verified cut and timing revision; anonymous eligibility is checked separately. Turning sharing off stops future uploads; it does not erase entries already received by the service.')
         elif choice == 2:
             store.retry()
             xbmcgui.Dialog().notification('Timing sharing', 'Unsent contributions will retry while sharing is on.')

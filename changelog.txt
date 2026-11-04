@@ -1,3 +1,6 @@
+0.15.13
+Give each queued contribution a stable operation ID so retries cannot replace newer ratings. Show recorded anonymous rating and eligibility state after server matching. Preserve consent, local timings and offline retry.
+
 0.15.12
 Optional timing sharing with explicit consent, a bounded offline upload queue, acknowledged receipts, retries and upload status in the player and settings. Timings and ratings are received for verification/review; unmatched cuts cannot affect other streams. Local marking stays available.
 
