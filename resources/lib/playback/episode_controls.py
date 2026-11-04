@@ -235,7 +235,7 @@ class Controls:
                 matched=external_end is not None and trigger==external_end
                 title='Next episode · '+self.external_outro['provider'] if matched else 'Ready for the next episode?'
                 if matched and self.external_outro.get('unverified'):title+=' · unverified'
-                self.prompt('next',title,'Next episode',self.next,position,duration,runtime_matched=matched,online=matched and self.external_outro['provider']!='Your confirmed timing')
+                self.prompt('next',title,'Next episode',self.next,position,duration,runtime_matched=matched,online=matched and self.external_outro.get('online',self.external_outro['provider']!='Your confirmed timing'))
         except (EpisodeError,RuntimeError):
             # Episode assistance must never stop playback or the progress observer.
             self.dismiss()
