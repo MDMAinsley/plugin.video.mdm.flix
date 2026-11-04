@@ -18,11 +18,14 @@ def _session_path():
     return os.path.join(path,SESSION_FILE)
 
 
-def clear_sources():
+def clear_sources(profile=None):
     from resources.lib.playback.scrape_cache import clear
     clear()
-    try: os.remove(_session_path())
-    except OSError: pass
+    try:
+        path=os.path.join(xbmcvfs.translatePath(profile),SESSION_FILE) if profile else _session_path()
+        os.remove(path)
+    except (OSError,RuntimeError):
+        pass
 
 
 def store_sources(sources):

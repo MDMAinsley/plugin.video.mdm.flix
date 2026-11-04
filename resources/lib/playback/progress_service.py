@@ -50,6 +50,8 @@ class Observer(xbmc.Player):
         self.saved=time.monotonic()
 
     def onAVStarted(self):
+        from resources.lib.playback import next_prompt
+        next_prompt.clear()
         with self.lock:
             try:
                 if self.addon.getSetting('progress_enabled')=='false' or not self.isPlayingVideo():return
@@ -91,9 +93,17 @@ class Observer(xbmc.Player):
             if self.active:self.write(True,ended)
             self.active=None
 
-    def onPlayBackStopped(self):self.finish()
-    def onPlayBackEnded(self):self.finish(True)
+    def onPlayBackStopped(self):
+        from resources.lib.playback import next_prompt
+        next_prompt.clear()
+        self.finish()
+    def onPlayBackEnded(self):
+        from resources.lib.playback import next_prompt
+        next_prompt.ended()
+        self.finish(True)
     def onPlayBackError(self):
+        from resources.lib.playback import next_prompt
+        next_prompt.clear()
         # Preserve the last confirmed checkpoint; an error is not completion.
         with self.lock:
             if self.active and self.observed and self.addon.getSetting('progress_enabled')!='false':
@@ -103,7 +113,8 @@ class Observer(xbmc.Player):
 
 def run(addon):
     from resources.lib.session import clear_sources
-    clear_sources()
+    profile=addon.getAddonInfo('profile')
+    clear_sources(profile)
     observer=Observer(addon);monitor=xbmc.Monitor()
     from resources.lib.playback.episode_controls import Controls
     controls=Controls(addon)
@@ -116,4 +127,4 @@ def run(addon):
         try:
             controls.close();observer.finish()
         finally:
-            clear_sources()
+            clear_sources(profile)

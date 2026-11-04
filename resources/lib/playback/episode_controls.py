@@ -27,6 +27,7 @@ def read_chapters():
 
 
 def popup(addon,title,button,valid,accept,closed):
+    from resources.lib.playback import next_prompt
     # Defined lazily so the service/policy modules do not allocate GUI windows.
     class Prompt(xbmcgui.WindowXMLDialog):
         def onInit(self):
@@ -36,13 +37,20 @@ def popup(addon,title,button,valid,accept,closed):
         def onAction(self,action):
             identifier=action.getId()
             if identifier==13:
+                closed['choice']=11
+                if closed.get('kind')=='next':next_prompt.clear()
                 self.close()
                 if valid():xbmc.Player().stop()
             elif identifier in (12,68,79,229):
+                if closed.get('kind') not in ('intro','next'):self.close()
+                if valid() and xbmc.Player().isPlayingVideo():xbmc.Player().pause()
+            elif identifier in (9,10,92,216,247,257):
+                closed['choice']=11
+                if closed.get('kind')=='next':next_prompt.clear()
                 self.close()
-                if valid():xbmc.Player().pause()
-            elif identifier in (9,10,92,216,247,257):self.close()
         def onClick(self,identifier):
+            closed['choice']=identifier
+            if closed.get('kind')=='next' and identifier!=10:next_prompt.clear()
             self.close()
             if identifier==10 and valid():accept()
     dialog=Prompt('MDM_EpisodePrompt.xml',addon.getAddonInfo('path'),'Default','1080i')
@@ -57,6 +65,8 @@ def popup(addon,title,button,valid,accept,closed):
 class Controls:
     def __init__(self,addon,player=None):
         from resources.lib.playback.player_timings import available
+        from resources.lib.playback import next_prompt
+        next_prompt.clear()
         available(False)
         self.addon=addon;self.player=player or xbmc.Player();self.token=None;self.item=None
         self.shown=set();self.chapters=[];self.chapter_attempts=0;self.chapter_due=0;self.config_due=0
@@ -75,19 +85,38 @@ class Controls:
 
     def valid(self,token):return not self.closed and self.token==token and current_token(self.player)==token
 
-    def prompt(self,kind,title,label,accept,position,duration,window_end=None,runtime_matched=False,online=False):
-        token=self.token;holder={'done':False,'until':time.monotonic()+15,'token':token,'end':window_end}
+    def next_valid(self,token):
+        from resources.lib.playback import next_prompt
+        return self.valid(token) or (not self.closed and self.token==token and self.item
+                                    and next_prompt.owns(self.player,token,self.item))
+
+    def prompt(self,kind,title,label,accept,position,duration,window_end=None,runtime_matched=False,online=False,window_start=None):
+        token=self.token
+        holder={'done':False,'until':None if kind in ('intro','next') else time.monotonic()+15,
+                'token':token,'kind':kind,'start':window_start,'end':window_end,'online':online}
+        if kind=='next':
+            from resources.lib.playback import next_prompt
+            if self.valid(token):next_prompt.offer(token,self.item)
+            holder['reopen']=lambda:self.prompt(kind,title,label,accept,position,duration,
+                window_end,runtime_matched,online,window_start)
         self.shown.add(kind);self.dialog=holder
         def valid():
-            if holder.get('cancelled') or time.monotonic()>=holder['until'] or not self.valid(token):return False
+            if (holder.get('cancelled') or holder['until'] is not None and time.monotonic()>=holder['until']
+                    or not (self.next_valid(token) if kind=='next' else self.valid(token))):return False
             try:
                 config=configuration(self.addon,Presets(self.addon).get(self.item['tmdb_id']))
                 if not config['enabled'] or not config['intro_enabled' if kind in ('intro','mark_intro','rate_intro') else 'next_enabled']:return False
                 if kind in ('intro','mark_intro','rate_intro') and config['intro_mode']=='Off':return False
+                if kind=='next':
+                    from resources.lib.playback import next_prompt
+                    if next_prompt.owns(self.player,token,self.item):return True
                 at=finite(self.player.getTime());length=finite(self.player.getTotalTime())
-                if runtime_matched and abs(length-duration)>5:return False
-                if online and self.addon.getSetting('episode_timing_lookup')=='false':return False
-                if window_end is not None:return position-2<=at<window_end and window_end<length-30
+                if runtime_matched and kind!='next' and abs(length-duration)>5:return False
+                if online and kind!='next' and self.addon.getSetting('episode_timing_lookup')=='false':return False
+                if window_end is not None:
+                    start=window_start if window_start is not None else position-2
+                    return start<=at<window_end and window_end<length-30
+                if kind=='next':return length>=60 and at<=length
                 return at>=position-2 and length>=60 and at<=length
             except (EpisodeError,RuntimeError):return False
         def execute():
@@ -108,13 +137,33 @@ class Controls:
         panel(self.addon, token)
 
     def next(self,token):
-        if not self.valid(token):return
+        if not self.next_valid(token):return
         params=dict(action='episode_next',token=token,tmdb_id=self.item['tmdb_id'],season=self.item['season'],episode=self.item['episode'])
         xbmc.executebuiltin('RunPlugin(plugin://plugin.video.mdm.flix/?'+urlencode(params)+')')
 
     def tick(self):
         token=current_token(self.player)
+        from resources.lib.playback import next_prompt
+        if token is None and self.item and next_prompt.owns(self.player,self.token,self.item):
+            try:config=configuration(self.addon,Presets(self.addon).get(self.item['tmdb_id']))
+            except EpisodeError:
+                next_prompt.clear();self.dismiss();return
+            if not config['enabled'] or not config['next_enabled']:
+                next_prompt.clear()
+                self.dismiss()
+            elif self.dialog and self.dialog['done']:
+                choice=self.dialog.get('choice')
+                if choice==11:next_prompt.clear()
+                elif choice==10:
+                    self.dialog=None
+                    return
+                else:
+                    self.dialog['reopen']()
+                    return
+            else:
+                return
         if token!=self.token:
+            next_prompt.clear()
             from resources.lib.playback.player_timings import available
             available(False)
             self.dismiss();self.token=None;self.item=None;self.shown=set();self.chapters=[];self.chapter_attempts=0;self.chapter_due=0;self.config_due=0
@@ -174,10 +223,23 @@ class Controls:
             if not config['enabled']:
                 self.dismiss();return
             if self.dialog:
-                if self.dialog['done']:self.dialog=None
-                elif now>=self.dialog['until'] or self.dialog['end'] is not None and position>=self.dialog['end'] or xbmc.getCondVisibility('Player.Paused'):
-                    self.dismiss()
-                else:return
+                if self.dialog['done']:
+                    if self.dialog.get('kind')=='next' and self.dialog.get('choice') is None:
+                        self.dialog['reopen']()
+                        return
+                    self.dialog=None
+                else:
+                    holder=self.dialog
+                    expired=holder['until'] is not None and now>=holder['until']
+                    outside=(holder['end'] is not None and position>=holder['end']
+                             or holder.get('start') is not None and position<holder['start'])
+                    active=config['intro_enabled'] if holder.get('kind') in ('intro','mark_intro','rate_intro') else config['next_enabled']
+                    if holder.get('kind') in ('intro','mark_intro','rate_intro') and config['intro_mode']=='Off':active=False
+                    if holder.get('online') and holder.get('kind')=='intro' and self.addon.getSetting('episode_timing_lookup')=='false':active=False
+                    if expired or outside or not active:
+                        if outside and holder.get('kind')=='intro':self.shown.discard('intro')
+                        self.dismiss()
+                    else:return
             if xbmc.getCondVisibility('Player.Paused') or not xbmc.getCondVisibility('Window.IsActive(fullscreenvideo)'):return
             if self.feedback_due is not None and now>=self.feedback_due:
                 self.feedback_due=None
@@ -222,7 +284,7 @@ class Controls:
                     source += ' · unverified'
                 self.prompt('intro','Opening titles · '+source,'Estimated skip intro' if estimated else 'Skip intro',
                             lambda token:self.skip(token,intro[1]),position,duration,intro[1],matched,
-                            matched and timing['online']);return
+                            matched and timing['online'],window_start=intro[0]);return
             from resources.lib.playback.marking import draft
             from resources.lib.playback.timing_ui import playing
             context = playing() if self.timing else None
@@ -261,12 +323,14 @@ class Controls:
                 matched=external_end is not None and trigger==external_end
                 title='Next episode · '+self.external_outro['provider'] if matched else 'Ready for the next episode?'
                 if matched and self.external_outro.get('unverified'):title+=' · unverified'
-                self.prompt('next',title,'Next episode',self.next,position,duration,runtime_matched=matched,online=matched and self.external_outro.get('online',self.external_outro['provider']!='Your confirmed timing'))
+                self.prompt('next',title,'Play now',self.next,position,duration,runtime_matched=matched,online=matched and self.external_outro.get('online',self.external_outro['provider']!='Your confirmed timing'))
         except (EpisodeError,RuntimeError):
             # Episode assistance must never stop playback or the progress observer.
             self.dismiss()
 
     def close(self):
         from resources.lib.playback.player_timings import available
+        from resources.lib.playback import next_prompt
+        next_prompt.clear()
         available(False)
         self.closed=True;self.dismiss()

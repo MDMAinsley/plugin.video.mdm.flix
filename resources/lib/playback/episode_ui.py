@@ -90,6 +90,7 @@ def following(client,identifier,season,episode,today=None):
 
 
 def play_next(addon,core,params):
+    from resources.lib.playback import next_prompt
     from resources.lib.playback.episode_controls import current_token
     from resources.lib.playback.tracking import PROPERTY
     from resources.lib.playback.progress import clean,ProgressError
@@ -98,7 +99,7 @@ def play_next(addon,core,params):
         if not re.fullmatch('[0-9a-f]{32}',token):raise EpisodeError('This next-episode prompt has expired.')
         player=xbmc.Player()
         def owned():
-            if current_token(player)!=token:return False
+            if current_token(player)!=token:return next_prompt.owns(player,token,params)
             raw=player.getPlayingItem().getProperty(PROPERTY)
             item=clean(json.loads(raw).get('item'))
             return item['media_type']=='episode' and all(str(item[k])==str(params.get(k)) for k in ('tmdb_id','season','episode'))
@@ -110,9 +111,12 @@ def play_next(addon,core,params):
             xbmcgui.Dialog().notification('MDM Flix','No next aired episode is available yet.',xbmcgui.NOTIFICATION_INFO,4000);return
         action='autoplay' if addon.getSetting('playback_mode')=='Autoplay' else 'sources'
         url='plugin://plugin.video.mdm.flix/?'+urlencode(dict(next_item,action=action))
-        player.stop()
+        if player.isPlayingVideo():player.stop()
         if action=='autoplay':xbmc.executebuiltin('PlayMedia('+url+')')
         else:xbmc.executebuiltin('ActivateWindow(Videos,'+url+',return)')
     except (EpisodeError,CatalogueError,ProgressError,RuntimeError,ValueError,TypeError) as error:
         text=str(error) if isinstance(error,(EpisodeError,CatalogueError)) else 'The next episode could not be opened. Your current progress is kept.'
         xbmcgui.Dialog().ok('Next episode',text)
+    finally:
+        pending=next_prompt.read()
+        if pending and pending['token']==params.get('token'):next_prompt.clear()
