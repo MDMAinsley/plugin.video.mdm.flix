@@ -53,6 +53,11 @@ class Router:
             from resources.lib.playback.episode_ui import settings
             settings(nav,self.addon)
 
+        elif action == 'player_timings':
+            from resources.lib.playback.player_timings import show
+            show(self.addon,self.core)
+            return
+
         elif action == 'timing_feedback':
             from resources.lib.playback.timing_feedback import panel,manage
             from resources.lib.playback.timing_ui import playing

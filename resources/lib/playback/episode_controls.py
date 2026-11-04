@@ -56,6 +56,8 @@ def popup(addon,title,button,valid,accept,closed):
 
 class Controls:
     def __init__(self,addon,player=None):
+        from resources.lib.playback.player_timings import available
+        available(False)
         self.addon=addon;self.player=player or xbmc.Player();self.token=None;self.item=None
         self.shown=set();self.chapters=[];self.chapter_attempts=0;self.chapter_due=0;self.config_due=0
         self.config=None;self.dialog=None;self.closed=False
@@ -113,6 +115,8 @@ class Controls:
     def tick(self):
         token=current_token(self.player)
         if token!=self.token:
+            from resources.lib.playback.player_timings import available
+            available(False)
             self.dismiss();self.token=None;self.item=None;self.shown=set();self.chapters=[];self.chapter_attempts=0;self.chapter_due=0;self.config_due=0
             self.timing=None;self.external_intro=None;self.external_outro=None;self.observed_duration=0;self.community_intro=[];self.community_outro=[];self.audio_intro=None;self.shared_intro=None;self.shared_outro=None;self.estimated_intro=None;self.audio_hint_signature=None;self.shared_request=None;self.marking_due=0;self.feedback_due=None
             if token:
@@ -121,6 +125,7 @@ class Controls:
                 if candidate and candidate['item']['media_type']=='episode':
                     self.token=token;self.item=candidate['item'];self.chapter_key=candidate.get('chapter_key')
                     self.timing=candidate.get('timing')
+                    available(True)
         if not self.item or not self.valid(self.token):return
         try:
             position=finite(self.player.getTime());duration=finite(self.player.getTotalTime())
@@ -261,4 +266,7 @@ class Controls:
             # Episode assistance must never stop playback or the progress observer.
             self.dismiss()
 
-    def close(self):self.closed=True;self.dismiss()
+    def close(self):
+        from resources.lib.playback.player_timings import available
+        available(False)
+        self.closed=True;self.dismiss()
