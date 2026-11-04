@@ -47,7 +47,7 @@ def panel(addon, token, kind='intro'):
     state = draft(context)
     if state is None or state['kind'] != kind:
         text = ('Mark the {} while this episode plays? Seek with the controls in this panel '
-                'or return to the video and reopen it. The range will be saved on this device.').format(kind)
+                'or return to the video and reopen it. The range will be saved on this device. Optional sharing can send it for review for the public MDM Skip catalogue; permission is requested before uploading.').format(kind)
         if not xbmcgui.Dialog().yesno('Mark ' + kind, text):
             return
         if not same(context):
@@ -58,10 +58,10 @@ def panel(addon, token, kind='intro'):
         while same(context):
             position = finite(xbmc.Player().getTime(), 0, context['duration'])
             beginning = state['start']
-            title = 'Mark {} · {}'.format(kind, 'start' if beginning is None else 'end')
-            primary = 'Mark start now' if beginning is None else 'Mark end now · start ' + stamp(beginning)
+            title = 'Mark {} Â· {}'.format(kind, 'start' if beginning is None else 'end')
+            primary = 'Mark start now' if beginning is None else 'Mark end now Â· start ' + stamp(beginning)
             labels = [primary, 'Back 10 seconds', 'Forward 10 seconds',
-                      'Return to video · keep draft', 'Reset start', 'Cancel marking']
+                      'Return to video Â· keep draft', 'Reset start', 'Cancel marking']
             choice = xbmcgui.Dialog().select(title, labels)
             if choice < 0 or choice == 3 or not same(context):
                 return
@@ -91,11 +91,17 @@ def panel(addon, token, kind='intro'):
                 Store(addon).confirm(context['fingerprint'], row, context['duration'])
                 clear()
                 try:
-                    Feedback(addon).save(context, row, 'correction')
+                    key = Feedback(addon).save(context, row, 'correction')
                 except TimingError:
                     xbmcgui.Dialog().ok('Mark ' + kind, 'Timing saved. Its feedback record could not be saved.')
                     return
-                xbmcgui.Dialog().notification('Mark ' + kind, 'Timing saved on this device.')
+                from resources.lib.playback.contributions import offer
+                try:
+                    message = offer(addon, context, row, 'correction', key)
+                except TimingError as error:
+                    xbmcgui.Dialog().ok('Timing sharing', str(error))
+                    message = 'Timing saved on this device.'
+                xbmcgui.Dialog().notification('Mark ' + kind, message)
                 return
     except (TimingError, EpisodeError, RuntimeError) as error:
         xbmcgui.Dialog().ok('Mark ' + kind, str(error))

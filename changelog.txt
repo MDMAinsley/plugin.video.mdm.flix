@@ -1,3 +1,6 @@
+0.15.12
+Optional timing sharing with explicit consent, a bounded offline upload queue, acknowledged receipts, retries and upload status in the player and settings. Timings and ratings are received for verification/review; unmatched cuts cannot affect other streams. Local marking stays available.
+
 0.15.2
 Require automatic eligible-file selection during Autoplay/preflight. Merge adjacent labelled opening/title-sequence chapters into one intro range shared by source matching and the skip button.
 

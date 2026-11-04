@@ -58,6 +58,11 @@ class Router:
             show(self.addon,self.core)
             return
 
+        elif action == 'timing_sharing':
+            from resources.lib.playback.contributions import manage
+            manage(self.addon)
+            return
+
         elif action == 'timing_feedback':
             from resources.lib.playback.timing_feedback import panel,manage
             from resources.lib.playback.timing_ui import playing

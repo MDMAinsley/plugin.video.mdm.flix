@@ -120,6 +120,8 @@ def run(addon):
     controls=Controls(addon)
     from resources.lib.playback.timing_service import start
     timing_worker=start(addon,monitor)
+    from resources.lib.playback.contributions import start as start_sharing
+    sharing_worker=start_sharing(addon,monitor)
     try:
         while not monitor.waitForAbort(1):
             observer.tick();controls.tick()

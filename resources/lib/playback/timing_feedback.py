@@ -55,7 +55,7 @@ def panel(addon, token, kind='intro'):
         if xbmcgui.Dialog().yesno('Timing feedback', 'No current '+kind+' timing is available. Would you like to mark it?'):
             mark(addon, token, kind)
         return
-    choice = xbmcgui.Dialog().select('Rate '+kind+' timing · saved on this device',
+    choice = xbmcgui.Dialog().select('Rate '+kind+' timing Â· saved on this device',
                                     ['Good', 'Bad', 'Correct timing using playback', 'Not now'])
     if choice < 0 or choice == 3 or not same(context):
         return
@@ -63,8 +63,10 @@ def panel(addon, token, kind='intro'):
         mark(addon, token, kind)
         return
     try:
-        Feedback(addon).save(context, row, 'good' if choice == 0 else 'bad')
-        xbmcgui.Dialog().notification('Timing feedback', 'Rating saved on this device.')
+        key = Feedback(addon).save(context, row, 'good' if choice == 0 else 'bad')
+        from resources.lib.playback.contributions import offer
+        message = offer(addon, context, row, 'good' if choice == 0 else 'bad', key)
+        xbmcgui.Dialog().notification('Timing feedback', message)
     except TimingError as error:
         xbmcgui.Dialog().ok('Timing feedback', str(error))
 
@@ -74,10 +76,13 @@ def manage(addon):
         store = Feedback(addon)
         choice = xbmcgui.Dialog().select('Timing feedback',
             [str(store.count())+' local ratings/corrections',
-             'Delete local timing feedback', 'Back'])
+             'Delete local timing feedback', 'Timing sharing and upload status', 'Back'])
         if choice == 1 and xbmcgui.Dialog().yesno('Delete feedback?', 'Delete ratings and correction records saved on this device? Saved intro and outro timings will stay available.'):
             store.clear()
+        elif choice == 2:
+            from resources.lib.playback.contributions import manage as sharing
+            sharing(addon)
         elif choice == 0:
-            xbmcgui.Dialog().ok('Timing feedback', 'Feedback is saved locally. Shared submissions and reviewer sign-in are still being connected.')
+            xbmcgui.Dialog().ok('Timing feedback', 'Local ratings are kept on this device. Use Timing sharing to opt in and check upload status. Received contributions wait for verification and review.')
     except TimingError as error:
         xbmcgui.Dialog().ok('Timing feedback', str(error))

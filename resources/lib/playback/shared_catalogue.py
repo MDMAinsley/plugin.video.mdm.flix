@@ -119,9 +119,9 @@ def refresh(addon, transport=download):
     temporary = None
     try:
         now = time.time()
-        if previous is not None and 0 <= now - cache.stat().st_mtime < 86400:
+        if previous is not None and -5 <= now - cache.stat().st_mtime < 86400:
             return 'Cached'
-        if retry.exists() and 0 <= now - retry.stat().st_mtime < 900:
+        if retry.exists() and -5 <= now - retry.stat().st_mtime < 900:
             return 'Offline cache' if previous is not None else 'Retry wait'
         cache.parent.mkdir(parents=True, exist_ok=True)
         retry.touch()
