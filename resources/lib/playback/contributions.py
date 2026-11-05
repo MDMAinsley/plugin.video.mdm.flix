@@ -315,7 +315,15 @@ def manage(addon):
                   'Retry unsent contributions', 'Delete unsent contributions', 'Back']
         choice = xbmcgui.Dialog().select('Timing sharing', labels)
         if choice == 0:
-            consent(addon, configure=True)
+            accepted = consent(addon, configure=True)
+            saved = addon.getSetting(CONSENT)
+            if saved != ('true' if accepted else 'false'):
+                message = 'Kodi could not save your choice. Open Timing sharing to try again.'
+            elif accepted:
+                message = 'Timing sharing is on.'
+            else:
+                message = 'Timing sharing is off.'
+            xbmcgui.Dialog().ok('Timing sharing', message)
         elif choice == 1:
             xbmcgui.Dialog().ok('Timing sharing', (detail or 'No contributions yet.')+'\nReceived contributions are held for verification and review. They are not automatically published. Ratings count only after matching a verified cut and timing revision; anonymous eligibility is checked separately. Turning sharing off stops future uploads; it does not erase entries already received by the service.')
         elif choice == 2:
