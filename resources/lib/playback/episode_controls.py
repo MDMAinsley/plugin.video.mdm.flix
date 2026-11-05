@@ -201,7 +201,7 @@ class Controls:
                         if digest != self.shared_request:
                             shared_timing.request_match(self.addon, digest, self.item)
                             self.shared_request = digest
-                        shared = shared_timing.matched_timings(self.addon, digest, self.item, duration)
+                        shared = shared_timing.matched_timings(self.addon, digest, self.item, duration, token=self.token)
                         self.shared_intro = shared.get("intro")
                         self.shared_outro = shared.get("outro")
                         self.audio_hint_signature = audio_timing.write_search_hint(

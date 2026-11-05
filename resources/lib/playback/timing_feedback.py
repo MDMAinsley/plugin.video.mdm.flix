@@ -55,7 +55,7 @@ def panel(addon, token, kind='intro'):
         if xbmcgui.Dialog().yesno('Timing feedback', 'No current '+kind+' timing is available. Would you like to mark it?'):
             mark(addon, token, kind)
         return
-    choice = xbmcgui.Dialog().select('Rate '+kind+' timing Â· saved on this device',
+    choice = xbmcgui.Dialog().select('Rate '+kind+' timing',
                                     ['Good', 'Bad', 'Correct timing using playback', 'Not now'])
     if choice < 0 or choice == 3 or not same(context):
         return

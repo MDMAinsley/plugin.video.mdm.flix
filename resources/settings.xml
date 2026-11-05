@@ -27,7 +27,12 @@
     <setting id="episode_intro_enabled" type="bool" label="Show Skip intro prompt" default="true" />
     <setting id="episode_new_shows" type="bool" label="Enable prompts for new shows without a preset" default="true" />
   </category>
+  <category label="Shared timing identification">
+    <setting id="episode_native_identity" type="bool" label="Identify known copies automatically" default="true" />
+    <setting type="action" label="Refresh timings and check status" action="RunPlugin(plugin://plugin.video.mdm.flix/?action=timing_catalogue)" />
+  </category>
   <category label="Timing sharing">
+    <setting id="timing_share_consent_v2" type="text" label="File/audio timing sharing consent" default="" visible="false" />
     <setting id="timing_share_consent_v1" type="text" label="Timing sharing consent" default="" visible="false" />
     <setting type="action" label="Sharing consent, upload status and retries" action="RunPlugin(plugin://plugin.video.mdm.flix/?action=timing_sharing)" />
   </category>

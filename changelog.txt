@@ -1,3 +1,6 @@
+0.16.0
+Automatically identify known file copies through bounded decoder-free background reads. Versioned catalogue supports reviewed evidence aliases while preserving older clients. Cancel on buffering/source change, show refresh/recheck/status controls, and bind evidence to the playing session. Updated sharing consent and bounded automatic enrichment of file-bound feedback. Chapters, audio and timing fallbacks remain available.
+
 0.15.13
 Give each queued contribution a stable operation ID so retries cannot replace newer ratings. Show recorded anonymous rating and eligibility state after server matching. Preserve consent, local timings and offline retry.
 

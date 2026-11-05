@@ -33,25 +33,38 @@ def request_match(addon, file_id, item):
                 pass
 
 
-def matched_timings(addon, file_id, item, duration):
+def matched_timings(addon, file_id, item, duration, token=None):
     if not file_id:
         return {}
     from resources.lib.playback import shared_catalogue
     if shared_catalogue.enabled(addon):
-        evidence_path = Path(xbmcvfs.translatePath(addon.getAddonInfo('profile'))) / 'shared_cut_evidence.json'
-        try:
-            with evidence_path.open(encoding='utf8') as stream:
-                raw = stream.read(2049)
-            evidence = json.loads(raw) if len(raw)<=2048 else {}
-            if (evidence.get('schema') == 1 and evidence.get('file_id') == file_id
-                    and all(evidence.get(key)==item[key] for key in ('tmdb_id','season','episode'))
-                    and number(evidence.get('duration'),60) is not None
-                    and abs(evidence['duration']-duration)<=2):
-                result = shared_catalogue.match(addon,item,duration,evidence.get('anchors'))
-                if result:
-                    return result
-        except (OSError,ValueError,TypeError,KeyError,AttributeError):
-            pass
+        folder=Path(xbmcvfs.translatePath(addon.getAddonInfo('profile')))
+        results={}
+        conflicts=set()
+        for name in ('native_cut_evidence.json','shared_cut_evidence.json'):
+            native=name.startswith('native_')
+            if native and (not token or addon.getSetting('episode_native_identity')=='false'):
+                continue
+            try:
+                with (folder/name).open(encoding='utf8') as stream:
+                    raw=stream.read(2049)
+                evidence=json.loads(raw) if len(raw)<=2048 else {}
+                if (evidence.get('schema')!=1 or evidence.get('file_id')!=file_id
+                        or native and evidence.get('token')!=token
+                        or any(evidence.get(key)!=item[key] for key in ('tmdb_id','season','episode'))
+                        or number(evidence.get('duration'),60) is None or abs(evidence['duration']-duration)>2):
+                    continue
+                result=shared_catalogue.match(addon,item,duration,evidence.get('anchors'))
+                for kind,row in result.items():
+                    if kind in results and any(results[kind].get(key)!=row.get(key) for key in ('marker_id','revision','start','end','tier')):
+                        conflicts.add(kind)
+                    else:
+                        results[kind]=row
+            except (OSError,ValueError,TypeError,KeyError,AttributeError):
+                continue
+        results={kind:row for kind,row in results.items() if kind not in conflicts}
+        if results:
+            return results
     path = Path(xbmcvfs.translatePath(addon.getAddonInfo('profile'))) / 'shared_timing_match.json'
     try:
         with path.open(encoding='utf8') as stream:

@@ -58,10 +58,10 @@ def panel(addon, token, kind='intro'):
         while same(context):
             position = finite(xbmc.Player().getTime(), 0, context['duration'])
             beginning = state['start']
-            title = 'Mark {} Â· {}'.format(kind, 'start' if beginning is None else 'end')
-            primary = 'Mark start now' if beginning is None else 'Mark end now Â· start ' + stamp(beginning)
+            title = 'Mark {} · {}'.format(kind, 'start' if beginning is None else 'end')
+            primary = 'Mark start now' if beginning is None else 'Mark end now · start ' + stamp(beginning)
             labels = [primary, 'Back 10 seconds', 'Forward 10 seconds',
-                      'Return to video Â· keep draft', 'Reset start', 'Cancel marking']
+                      'Return to video · keep draft', 'Reset start', 'Cancel marking']
             choice = xbmcgui.Dialog().select(title, labels)
             if choice < 0 or choice == 3 or not same(context):
                 return

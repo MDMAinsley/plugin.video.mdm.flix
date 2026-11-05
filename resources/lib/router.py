@@ -58,6 +58,11 @@ class Router:
             show(self.addon,self.core)
             return
 
+        elif action == 'timing_catalogue':
+            from resources.lib.playback.native_identity import manage
+            manage(self.addon)
+            return
+
         elif action == 'timing_sharing':
             from resources.lib.playback.contributions import manage
             manage(self.addon)

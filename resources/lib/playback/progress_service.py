@@ -122,6 +122,8 @@ def run(addon):
     timing_worker=start(addon,monitor)
     from resources.lib.playback.contributions import start as start_sharing
     sharing_worker=start_sharing(addon,monitor)
+    from resources.lib.playback.native_identity import start as start_identity
+    identity_worker=start_identity(addon,monitor)
     try:
         while not monitor.waitForAbort(1):
             observer.tick();controls.tick()

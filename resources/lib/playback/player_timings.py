@@ -23,12 +23,12 @@ def show(addon, core):
         return
     draft = marking.draft(context)
     labels = ['Mark intro', 'Mark outro', 'Rate intro timing', 'Rate outro timing',
-              'Timing information', 'Timing sharing and upload status']
+              'Timing information', 'Timing sharing and upload status', 'Shared timings / file check']
     if draft:
         index = 0 if draft['kind'] == 'intro' else 1
         labels[index] = 'Continue marking ' + draft['kind']
         if draft['start'] is not None:
-            labels[index] += ' Â· start ' + timing_ui.stamp(draft['start'])
+            labels[index] += ' · start ' + timing_ui.stamp(draft['start'])
     selected = xbmcgui.Dialog().select('Intro / outro controls', labels)
     if selected < 0 or not timing_ui.same(context):
         return
@@ -40,4 +40,7 @@ def show(addon, core):
         timing_ui.action(addon, core, {})
     elif selected == 5:
         from resources.lib.playback.contributions import manage
+        manage(addon)
+    elif selected == 6:
+        from resources.lib.playback.native_identity import manage
         manage(addon)

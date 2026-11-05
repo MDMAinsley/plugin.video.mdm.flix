@@ -10,8 +10,9 @@ import urllib.request
 import xbmcvfs
 
 from resources.lib.playback import timing_rules as rules
+from resources.lib.playback.cut_evidence import normalize, groups, AUDIO
 
-URL = 'https://raw.githubusercontent.com/MDMAinsley/mdm-timing-catalogue/main/playback-snapshot.json'
+URL = 'https://raw.githubusercontent.com/MDMAinsley/mdm-timing-catalogue/main/playback-snapshot-v3.json'
 MAX_BYTES = 2_000_000
 METHOD = 'chromaprint2-fixed-32-v1'
 TIERS = ('trusted reviewer', 'community reviewed', 'software generated')
@@ -20,7 +21,7 @@ _cached = None
 
 
 def path(addon):
-    return Path(xbmcvfs.translatePath(addon.getAddonInfo('profile'))) / 'shared_catalogue.json'
+    return Path(xbmcvfs.translatePath(addon.getAddonInfo('profile'))) / 'shared_catalogue_v3.json'
 
 
 def enabled(addon):
@@ -28,28 +29,17 @@ def enabled(addon):
 
 
 def anchors(value):
-    if not isinstance(value, list) or len(value) != 2:
-        raise ValueError('Invalid cut anchors')
-    result = []
-    for anchor in value:
-        if (not isinstance(anchor, list) or len(anchor) != 3 or anchor[0] != METHOD
-                or type(anchor[1]) is not int or anchor[1] not in (0, 16)
-                or not isinstance(anchor[2], str) or not HEX.fullmatch(anchor[2])):
-            raise ValueError('Invalid cut anchor')
-        result.append(tuple(anchor))
-    if {row[1] for row in result} != {0, 16}:
-        raise ValueError('Incomplete cut anchors')
-    return set(result)
+    return set(normalize(value))
 
 
 def validate(data):
-    if not isinstance(data, dict) or set(data) != {'schema', 'cuts'} or type(data['schema']) is not int or data['schema'] != 2:
+    if not isinstance(data, dict) or set(data) != {'schema', 'cuts'} or type(data['schema']) is not int or data['schema'] not in (2,3):
         raise ValueError('Unsupported shared catalogue')
     cuts = data['cuts']
     if not isinstance(cuts, dict) or len(cuts) > 4000:
         raise ValueError('Invalid cut list')
     for key, cut in cuts.items():
-        if not HEX.fullmatch(key) or not isinstance(cut, dict) or set(cut) != {'episode', 'duration', 'anchors', 'markers'}:
+        if not HEX.fullmatch(key) or not isinstance(cut, dict) or set(cut) != ({'episode', 'duration', 'anchors', 'markers'} if data['schema']==2 else {'episode','duration','identities','markers'}):
             raise ValueError('Invalid cut fields')
         episode = cut['episode']
         if (not isinstance(episode, list) or len(episode) != 3
@@ -57,7 +47,11 @@ def validate(data):
                 or episode[0] < 1 or episode[1] < 0 or episode[2] < 1
                 or rules.number(cut['duration'], 60) is None):
             raise ValueError('Invalid cut identity')
-        anchors(cut['anchors'])
+        if data['schema']==2:
+            if normalize(cut['anchors'])[0][0]!=AUDIO:
+                raise ValueError('Unsupported legacy evidence')
+        else:
+            groups(cut['identities'])
         markers = cut['markers']
         if not isinstance(markers, dict) or any(kind not in ('intro', 'outro') for kind in markers):
             raise ValueError('Invalid markers')
@@ -81,17 +75,19 @@ def read(cache):
 
 def cached(addon):
     global _cached
-    cache = path(addon)
-    try:
-        stat = cache.stat()
-        signature = (str(cache), stat.st_mtime_ns, stat.st_size)
-        if _cached and _cached[0] == signature:
-            return _cached[1]
-        data = read(cache)
-        _cached = (signature, data)
-        return data
-    except (OSError, ValueError, TypeError, KeyError):
-        return None
+    cache=path(addon)
+    for actual in (cache,cache.with_name('shared_catalogue.json')):
+        try:
+            stat=actual.stat()
+            signature=(str(actual),stat.st_mtime_ns,stat.st_size)
+            if _cached and _cached[0]==signature:
+                return _cached[1]
+            data=read(actual)
+            _cached=(signature,data)
+            return data
+        except (OSError,ValueError,TypeError,KeyError):
+            continue
+    return None
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -109,7 +105,7 @@ def download():
     return raw
 
 
-def refresh(addon, transport=download):
+def refresh(addon, transport=download, force=False):
     """Run only in the timing worker. Preserve the old file on any failure."""
     if not enabled(addon):
         return 'Disabled'
@@ -119,9 +115,9 @@ def refresh(addon, transport=download):
     temporary = None
     try:
         now = time.time()
-        if previous is not None and -5 <= now - cache.stat().st_mtime < 86400:
+        if not force and previous is not None and cache.exists() and -5 <= now - cache.stat().st_mtime < 86400:
             return 'Cached'
-        if retry.exists() and -5 <= now - retry.stat().st_mtime < 900:
+        if not force and retry.exists() and -5 <= now - retry.stat().st_mtime < 900:
             return 'Offline cache' if previous is not None else 'Retry wait'
         cache.parent.mkdir(parents=True, exist_ok=True)
         retry.touch()
@@ -159,7 +155,7 @@ def match(addon, item, duration, evidence):
     episode = [item[key] for key in ('tmdb_id', 'season', 'episode')]
     candidates = [cut for cut in data['cuts'].values()
                   if cut['episode'] == episode and abs(cut['duration'] - duration) <= 3
-                  and anchors(cut['anchors']) == observed]
+                  and any(set(group)==observed for group in (groups(cut['identities']) if data['schema']==3 else (normalize(cut['anchors']),)))]
     if len(candidates) != 1:
         return {}
     result = {}
