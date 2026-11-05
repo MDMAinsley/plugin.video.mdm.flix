@@ -1,3 +1,6 @@
+0.16.2
+- Save timing sharing choices in local storage so they persist on Fire Stick.
+
 0.16.1
 - Confirm whether Kodi saved your timing sharing choice.
 

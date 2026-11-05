@@ -32,15 +32,20 @@ NOTICE = ('Share intro/outro timings and ratings for the public MDM Skip catalog
 
 
 def enabled(addon):
-    return addon.getSetting(CONSENT) == 'true'
+    try:
+        return Outbox(addon).sharing_choice(addon.getSetting(CONSENT)) == 'true'
+    except TimingError:
+        return False
 
 
 def consent(addon, configure=False):
-    previous = addon.getSetting(CONSENT)
-    if not configure and previous in ('true', 'false'):
-        return previous == 'true'
+    store = Outbox(addon)
+    if not configure:
+        previous = store.sharing_choice(addon.getSetting(CONSENT))
+        if previous in ('true', 'false'):
+            return previous == 'true'
     accepted = xbmcgui.Dialog().yesno('Share timings with MDM Skip?', NOTICE)
-    addon.setSetting(CONSENT, 'true' if accepted else 'false')
+    store.sharing_choice(value='true' if accepted else 'false')
     return accepted
 
 
@@ -174,11 +179,18 @@ class Outbox:
             return cursor.rowcount == 1
 
     def token(self, value=None):
+        return self.setting('token', value)
+
+    def sharing_choice(self, legacy='', value=None):
+        return self.setting(CONSENT, value, default=legacy)
+
+    def setting(self, key, value=None, default=''):
         with self.db() as db:
             if value is not None:
-                db.execute('INSERT OR REPLACE INTO settings VALUES(?,?)', ('token', value))
-            row = db.execute('SELECT value FROM settings WHERE key=?', ('token',)).fetchone()
-            return row[0] if row else ''
+                db.execute('INSERT OR REPLACE INTO settings VALUES(?,?)', (key, value))
+                return value
+            row = db.execute('SELECT value FROM settings WHERE key=?', (key,)).fetchone()
+            return row[0] if row else default
 
     def summary(self):
         with self.db() as db:
@@ -316,13 +328,7 @@ def manage(addon):
         choice = xbmcgui.Dialog().select('Timing sharing', labels)
         if choice == 0:
             accepted = consent(addon, configure=True)
-            saved = addon.getSetting(CONSENT)
-            if saved != ('true' if accepted else 'false'):
-                message = 'Kodi could not save your choice. Open Timing sharing to try again.'
-            elif accepted:
-                message = 'Timing sharing is on.'
-            else:
-                message = 'Timing sharing is off.'
+            message = 'Timing sharing is on.' if accepted else 'Timing sharing is off.'
             xbmcgui.Dialog().ok('Timing sharing', message)
         elif choice == 1:
             xbmcgui.Dialog().ok('Timing sharing', (detail or 'No contributions yet.')+'\nReceived contributions are held for verification and review. They are not automatically published. Ratings count only after matching a verified cut and timing revision; anonymous eligibility is checked separately. Turning sharing off stops future uploads; it does not erase entries already received by the service.')
