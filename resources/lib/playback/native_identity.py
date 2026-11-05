@@ -172,6 +172,7 @@ class Worker:
                      'strict_ranges_required','invalid_content_range','invalid_range_length','file_changed','file_validator_changed',
                      'unsafe_redirect','redirect_limit','identity_read_limit','truncated_range','identity_unavailable'}
             allowed.add('low_information_samples')
+            allowed.add('range_payload_unavailable')
             self.status(code if code in allowed else 'identity_unavailable')
 
 

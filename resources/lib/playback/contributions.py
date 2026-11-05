@@ -1,5 +1,6 @@
 """Consented, bounded timing outbox. Network work runs outside playback/UI ticks."""
 from contextlib import contextmanager
+from http.client import HTTPException
 import hashlib
 import json
 import math
@@ -223,7 +224,7 @@ def post(path, body, token=''):
             raise SendError('Contributor key rejected', True)
         raise SendError('Service request rejected' if error.code in (400,404,413,415) else 'Service unavailable',
                         error.code in (400,404,413,415))
-    except (OSError, ValueError) as error:
+    except (OSError, ValueError, HTTPException) as error:
         raise SendError('Offline or service unavailable') from error
 
 
