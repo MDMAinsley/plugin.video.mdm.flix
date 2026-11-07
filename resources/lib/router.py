@@ -179,7 +179,10 @@ class Router:
 
         elif action == ACTION_PROVIDER_SETTINGS:
             from resources.lib.kodi_addons import get_addon
-            link=self.addon.getSetting('scraper_provider')=='MDM Link'
+            from resources.lib.providers.manager import auto
+            link = self.addon.getSetting('scraper_provider') == 'MDM Link'
+            if auto(self.addon):
+                link = bool(get_addon('script.mdm.link'))
             provider = get_addon('script.mdm.link' if link else 'script.module.cocoscrapers')
             if provider:
                 if link:
@@ -191,8 +194,10 @@ class Router:
             return
 
         elif action in ("alldebrid_authorise", "alldebrid_check", "alldebrid_disconnect"):
-            if self.addon.getSetting('scraper_provider')=='MDM Link':
-                from resources.lib.kodi_addons import get_addon
+            from resources.lib.kodi_addons import get_addon
+            from resources.lib.providers.manager import auto
+            if self.addon.getSetting('scraper_provider') == 'MDM Link' or (
+                    auto(self.addon) and get_addon('script.mdm.link')):
                 from mdmlink.api import migrate
                 from mdmlink.ui import authorise, check_account, disconnect
                 target=get_addon('script.mdm.link')

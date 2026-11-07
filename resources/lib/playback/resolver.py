@@ -9,7 +9,7 @@ from resources.lib.playback.errors import PlaybackError, Cancelled
 from resources.lib.playback.selection import sort_sources
 from resources.lib.playback import scrape_cache
 from resources.lib.playback.player import play_url, failed
-from resources.lib.providers.manager import ProviderManager
+from resources.lib.providers.manager import ProviderManager, auto
 from resources.lib.session import store_sources, get_source, get_sources
 
 
@@ -17,19 +17,27 @@ def configured(addon):
     ProviderManager(addon).configured()
 
 
-def search(addon,core,log,params):
+def search(addon,core,log,params,*,fallback_item=None):
     configured(addon)
-    item=load(addon,core,params)
+    fallback = fallback_item is not None
+    item = fallback_item if fallback else load(addon,core,params)
     from resources.lib.playback.timing_service import enqueue
-    enqueue(addon,item)
-    cache_key=scrape_cache.key(addon,item)
+    if not fallback:
+        enqueue(addon,item)
+    cache_key = scrape_cache.key(addon,item,fallback=True) if fallback else scrape_cache.key(addon,item)
+    if not fallback and auto(addon) and params.get('refresh') == '1':
+        scrape_cache.forget(scrape_cache.key(addon,item,fallback=True))
     refresh=params.get('refresh')=='1'
     if refresh:scrape_cache.forget(cache_key)
     rows=None if refresh else scrape_cache.get(cache_key)
     params['_scrape_cache_hit']=rows is not None
     if rows is None:
-        rows=ProviderManager(addon,core,log).search_sources(item)
-        if not xbmc.Monitor().abortRequested():scrape_cache.put(cache_key,rows)
+        manager = ProviderManager(addon,core,log)
+        rows = manager.search_sources(item,fallback=True) if fallback else manager.search_sources(item)
+        # Recheck Link on the next search when a temporary failure sent Auto to Coco.
+        cacheable = fallback or not auto(addon) or any(row.get('provider_id') == 'mdm_link' for row in rows)
+        if cacheable and not xbmc.Monitor().abortRequested():
+            scrape_cache.put(cache_key,rows)
     for row in rows:
         row['extra']=dict(row.get('extra') or {})
         row['extra']['item']=item

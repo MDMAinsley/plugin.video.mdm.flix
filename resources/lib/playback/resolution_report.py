@@ -32,7 +32,10 @@ def validated(value):
         return {}
     if any(type(value.get(key)) is not int or not 0 <= value[key] <= limit for key, limit in COUNTS.items()):
         return {}
-    return {key:value[key] for key in ("schema", "run_id", "updated_utc", "version", "status", *COUNTS)}
+    result = {key:value[key] for key in ("schema", "run_id", "updated_utc", "version", "status", *COUNTS)}
+    if value.get('provider') in ('mdm_link', 'cocoscrapers'):
+        result['provider'] = value['provider']
+    return result
 
 
 def write(addon, report):

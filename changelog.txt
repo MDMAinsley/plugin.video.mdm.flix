@@ -1,3 +1,7 @@
+0.16.3
+- Use MDM Link first in Auto with bounded CocoScrapers fallback.
+- Show the scraper used in the latest Autoplay diagnostic.
+
 0.16.2
 - Save timing sharing choices in local storage so they persist on Fire Stick.
 

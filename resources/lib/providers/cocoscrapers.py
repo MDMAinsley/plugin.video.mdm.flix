@@ -13,6 +13,7 @@ import xbmcaddon
 import xbmcgui
 import xbmcvfs
 from resources.lib.kodi_addons import is_addon_installed
+from mdmlink import autoplay_context
 from resources.lib.providers.base import BaseProvider
 from resources.lib.playback.errors import PlaybackError, Cancelled
 
@@ -90,6 +91,9 @@ class CocoScrapersProvider(BaseProvider):
         monitor=xbmc.Monitor()
         for _ in range(min(device_policy.integer(self.addon,"device_workers",6,1,6),len(modules))): threading.Thread(target=worker,daemon=True).start()
         completed=0; found=[]; seen=set(); deadline=time.monotonic()+device_policy.integer(self.addon,"device_search_timeout",45,10,120)
+        remaining = autoplay_context.remaining()
+        if remaining is not None:
+            deadline = min(deadline, time.monotonic() + remaining)
         try:
             while completed<len(modules) and time.monotonic()<deadline:
                 if progress.iscanceled() or monitor.abortRequested(): raise Cancelled('Source search cancelled.')
@@ -101,6 +105,9 @@ class CocoScrapersProvider(BaseProvider):
                     if source and device_policy.allows(self.addon,source) and connection_policy.allows(self.addon,source) and source['extra']['hash'] not in seen:
                         found.append(source); seen.add(source['extra']['hash'])
                 progress.update(int(100*completed/len(modules)), '{} providers finished · {} sources'.format(completed,len(found)))
+            if progress.iscanceled() or monitor.abortRequested():
+                raise Cancelled('Source search cancelled.')
+            autoplay_context.check()
             if completed<len(modules): xbmcgui.Dialog().notification('MDM Flix','Search timed out; showing completed provider results.',xbmcgui.NOTIFICATION_INFO,3000)
         finally:
             stop.set(); progress.close()

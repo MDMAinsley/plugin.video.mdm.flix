@@ -32,6 +32,18 @@ def sort_sources(sources,addon=None):
     return sorted([s for s in sources or [] if usable(s)],key=lambda s:(bool(s.get('debrid')),quality.get(s.get('quality'),0)),reverse=True)
 
 
+def with_fallback(rows, fallback, has_ready=lambda: False):
+    """Give the alternate scraper a turn after the first failed candidate."""
+    if rows:
+        yield rows[0]
+        alternate = iter(fallback()) if fallback is not None and not has_ready() else iter(())
+        first = next(alternate, None)
+        if first is not None:
+            yield first
+        yield from rows[1:]
+        yield from alternate
+
+
 def pick_best_source(sources):
     rows=sort_sources(sources)
     return rows[0] if rows else None

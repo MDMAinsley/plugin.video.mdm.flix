@@ -14,6 +14,7 @@ from resources.lib.playback.match_lookup import Lookup
 from resources.lib.playback.media_metadata import Cache,active
 from resources.lib.playback.chapter_facts import fingerprint
 from resources.lib.playback.episode_policy import chapter_marks
+from resources.lib.playback.selection import with_fallback
 
 def limit(addon):
     value=addon.getSetting('episode_match_candidates') or '5'
@@ -81,7 +82,7 @@ def failure_detail(entry,error):
     scope=getattr(error,'ad_error_scope',None)
     if scope in ('source','service'):entry['service_error_scope']=scope
 
-def compare(addon,rows,resolve,cancel=lambda:False,lookup=None,update=lambda message:None,search_seconds=0):
+def compare(addon,rows,resolve,cancel=lambda:False,lookup=None,update=lambda message:None,search_seconds=0, fallback=None):
     start=time.monotonic();deadline=start+budget(addon);maximum=limit(addon)
     report=dict(schema=1,run_id=uuid.uuid4().hex[:12],updated_utc=int(time.time()),status='checking',attempted=0,failed=0,not_ready=0,rejected=0,unknown=0,duplicates=0,elapsed_seconds=0,lookup_calls=0,candidates=[],selected=None,search_seconds=round(search_seconds,3),total_seconds=0)
     ready=[];seen=set();item=None;lookup_obj=None
@@ -91,7 +92,7 @@ def compare(addon,rows,resolve,cancel=lambda:False,lookup=None,update=lambda mes
         write(addon,report);archive(addon,report)
     try:
         with autoplay_context.bounded(budget(addon)):
-            for source in rows:
+            for source in with_fallback(rows, fallback, lambda: bool(ready)):
                 if cancel():raise Cancelled('Playback cancelled.')
                 if report['attempted']>=maximum or time.monotonic()>=deadline:break
                 autoplay_context.check()

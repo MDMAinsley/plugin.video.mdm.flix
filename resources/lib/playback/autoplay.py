@@ -1,5 +1,6 @@
 """Bounded sequential resolution, respecting current filters and failure classes."""
 from resources.lib.playback import resolution_report
+from itertools import islice
 import xbmc
 import xbmcgui
 import time
@@ -7,7 +8,8 @@ from mdmlink import autoplay_context
 from mdmlink.models import magnet_hash
 from mdmlink.errors import PlaybackError, Cancelled, SourceFailure, SourcePreparing, SourceNotReady, AutoplayBudgetExpired
 from resources.lib.catalogue.tmdb import CatalogueError
-from resources.lib.playback.selection import sort_sources
+from resources.lib.playback.selection import sort_sources, with_fallback
+from resources.lib.providers.manager import auto
 
 
 
@@ -37,11 +39,25 @@ def run(nav, addon, core, log, params, search, resolve, play_url, failed):
     try:
         started=time.monotonic()
         rows = search(addon, core, log, params)
+        item = (rows[0].get('extra') or {}).get('item') if rows else None
+        fallback = None
+        if auto(addon) and item and rows[0].get('provider_id') == 'mdm_link':
+            def fallback():
+                if xbmc.Monitor().abortRequested():
+                    raise Cancelled('Playback cancelled.')
+                autoplay_context.check()
+                try:
+                    return search(addon, core, log, dict(params, refresh='0'), fallback_item=item)
+                except (Cancelled, AutoplayBudgetExpired):
+                    raise
+                except PlaybackError:
+                    return []
+
         from resources.lib.playback import timing_match,stream_match,timing_rules
         if timing_match.enabled(addon) and rows and timing_rules.identity((rows[0].get('extra') or {}).get('item')):
             previous=stream_match.read(addon).get('run_id')
             try:
-                chosen=stream_match.compare(addon,sort_sources(rows,addon),lambda source,attempt:resolve(source,addon,core,log,attempt=attempt),xbmc.Monitor().abortRequested,search_seconds=time.monotonic()-started)
+                chosen=stream_match.compare(addon,sort_sources(rows,addon),lambda source,attempt:resolve(source,addon,core,log,attempt=attempt),xbmc.Monitor().abortRequested,search_seconds=time.monotonic()-started,fallback=fallback)
             finally:
                 latest=stream_match.read(addon)
                 if latest.get('run_id')!=previous:
@@ -53,6 +69,7 @@ def run(nav, addon, core, log, params, search, resolve, play_url, failed):
             selected,url,match,match_report=chosen
             from resources.lib.playback.tracking import source as tracking_source
             with tracking_source(selected,addon):play_url(url,selected.get('label','MDM Flix'))
+            report['provider'] = selected.get('provider_id')
             handed_off=True;save('handoff')
             if match['score']<70:xbmcgui.Dialog().notification('MDM Flix','Playing an available stream; no intro timing match was established.',xbmcgui.NOTIFICATION_INFO,4000)
             return
@@ -67,17 +84,30 @@ def run(nav, addon, core, log, params, search, resolve, play_url, failed):
         if not unique:
             save("no_sources")
             raise PlaybackError("No sources remain under your current provider, quality, size and connection preferences.")
-        limit = min(attempts(addon), len(unique))
+        limit = attempts(addon) if fallback else min(attempts(addon), len(unique))
         monitor = xbmc.Monitor()
         last_failure = None
+
+        def alternate():
+            for source in fallback():
+                url = source.get('url', '')
+                key = magnet_hash(url) or url
+                if key in seen:
+                    report['duplicate_skipped'] += 1
+                    continue
+                seen.add(key)
+                yield source
+
         with autoplay_context.bounded(75):
-            for index, source in enumerate(unique[:limit], 1):
+            candidates = with_fallback(unique, alternate if fallback else None)
+            for index, source in enumerate(islice(candidates, limit), 1):
                 autoplay_context.check()
                 if monitor.abortRequested():
                     raise Cancelled("Playback cancelled.")
                 # Recheck current preferences in case they changed since search.
                 if not sort_sources([source], addon):
                     continue
+                report['provider'] = source.get('provider_id')
                 report["attempted"] += 1; save("resolving")
                 try:
                     url = resolve(source, addon, core, log, attempt=(index, limit))

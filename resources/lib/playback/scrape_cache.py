@@ -27,30 +27,40 @@ LINK_SETTINGS = (
 ) + tuple(f'provider_stream_{slot}_{field}' for slot in range(1, 4) for field in ('enabled', 'url'))
 
 
-def key(addon, item):
+def key(addon, item, fallback=False):
     settings = [addon.getSetting(name) for name in FLIX_SETTINGS]
-    provider_id = 'script.mdm.link' if settings[0] == 'MDM Link' else 'script.module.cocoscrapers'
-    provider = get_addon(provider_id)
-    if not provider:
-        return None
-    if provider_id == 'script.mdm.link':
-        provider_settings = json.dumps([provider.getSetting(name) for name in LINK_SETTINGS]).encode()
-    else:
-        try:
-            path = os.path.join(xbmcvfs.translatePath(provider.getAddonInfo('profile')), 'settings.xml')
-            with open(path, 'rb') as stream:
-                provider_settings = stream.read(128 * 1024 + 1)
-            if len(provider_settings) > 128 * 1024:
-                return None
-        except FileNotFoundError:
-            provider_settings = b''
-        except (OSError, TypeError):
-            return None
+    mode = settings[0] or 'Auto'
+    provider_ids = {
+        'Auto': ('script.mdm.link', 'script.module.cocoscrapers'),
+        'MDM Link': ('script.mdm.link',),
+        'CocoScrapers': ('script.module.cocoscrapers',),
+    }.get(mode, ())
     identity = [item.get(name) for name in ('media_type', 'tmdb_id', 'season', 'episode', 'imdb_id')]
     if not identity[1]:
         return None
-    context = json.dumps([identity, settings, provider.getAddonInfo('version')])
-    return hashlib.sha256(context.encode('utf8') + b'\0' + provider_settings).hexdigest()
+    providers = []
+    for provider_id in provider_ids:
+        provider = get_addon(provider_id)
+        if not provider:
+            continue
+        if provider_id == 'script.mdm.link':
+            data = json.dumps([provider.getSetting(name) for name in LINK_SETTINGS]).encode()
+        else:
+            try:
+                path = os.path.join(xbmcvfs.translatePath(provider.getAddonInfo('profile')), 'settings.xml')
+                with open(path, 'rb') as stream:
+                    data = stream.read(128 * 1024 + 1)
+                if len(data) > 128 * 1024:
+                    return None
+            except FileNotFoundError:
+                data = b''
+            except (OSError, TypeError):
+                return None
+        providers.append([provider_id, provider.getAddonInfo('version'), hashlib.sha256(data).hexdigest()])
+    if not providers:
+        return None
+    context = json.dumps([identity, settings, providers, fallback])
+    return hashlib.sha256(context.encode('utf8')).hexdigest()
 
 
 def _read(window):
