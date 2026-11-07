@@ -159,7 +159,12 @@ def compare(addon,rows,resolve,cancel=lambda:False,lookup=None,update=lambda mes
     except Cancelled:
         finish('cancelled');raise
     except SourcePreparing:
-        finish('preparing');raise
+        if not ready:
+            finish('preparing')
+            raise
+        # A cooldown during a later candidate must not discard an already
+        # resolved stream that passed the timing policy.
+        pass
     except PlaybackError:
         finish('stopped');raise
     except Exception:

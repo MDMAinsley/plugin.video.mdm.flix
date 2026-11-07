@@ -1,3 +1,4 @@
+import json
 import xbmc
 import time
 import xbmcgui
@@ -11,6 +12,18 @@ from resources.lib.playback import scrape_cache
 from resources.lib.playback.player import play_url, failed
 from resources.lib.providers.manager import ProviderManager, auto
 from resources.lib.session import store_sources, get_source, get_sources
+
+
+SEARCH_DIAGNOSTICS = 'MDM.Flix.LatestScraperSearch'
+
+
+def latest_search():
+    try:
+        raw = xbmcgui.Window(10000).getProperty(SEARCH_DIAGNOSTICS)
+        value = json.loads(raw) if raw and len(raw) <= 4096 else {}
+        return value if isinstance(value, dict) else {}
+    except (AttributeError, RuntimeError, ValueError):
+        return {}
 
 
 def configured(addon):
@@ -33,7 +46,16 @@ def search(addon,core,log,params,*,fallback_item=None):
     params['_scrape_cache_hit']=rows is not None
     if rows is None:
         manager = ProviderManager(addon,core,log)
-        rows = manager.search_sources(item,fallback=True) if fallback else manager.search_sources(item)
+        try:
+            rows = manager.search_sources(item,fallback=True) if fallback else manager.search_sources(item)
+        finally:
+            if isinstance(manager.search_report, dict):
+                report = latest_search() if fallback else {}
+                report.update(manager.search_report)
+                try:
+                    xbmcgui.Window(10000).setProperty(SEARCH_DIAGNOSTICS, json.dumps(report))
+                except (AttributeError, RuntimeError):
+                    pass
         # Recheck Link on the next search when a temporary failure sent Auto to Coco.
         cacheable = fallback or not auto(addon) or any(row.get('provider_id') == 'mdm_link' for row in rows)
         if cacheable and not xbmc.Monitor().abortRequested():
@@ -67,16 +89,9 @@ def search(addon,core,log,params,*,fallback_item=None):
 
 def show_sources(nav,addon,core,log,params):
     try:
-        started=time.monotonic()
-        params=dict(params)
-        rows=search(addon,core,log,params)
-        from resources.lib.playback.timing_match import enabled
-        from resources.lib.playback.timing_rules import identity
-        if not params.get('_scrape_cache_hit') and enabled(addon) and rows and identity((rows[0].get('extra') or {}).get('item')):
-            from resources.lib.playback.stream_match import compare
-            monitor=xbmc.Monitor()
-            compare(addon,rows,lambda source,attempt:resolve(source,addon,core,log,attempt),monitor.abortRequested,search_seconds=time.monotonic()-started)
-            rows=sort_sources(rows,addon)
+        # Browsing a list must never queue debrid transfers. Existing metadata
+        # still informs sorting; actual preparation starts after selection.
+        rows=search(addon,core,log,dict(params))
         if not rows:
             xbmcgui.Dialog().ok('MDM Flix','No sources remain. Check quality, file-size and connection preferences, enabled providers and source mode.')
             nav.end(); return

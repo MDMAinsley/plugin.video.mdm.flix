@@ -1,3 +1,7 @@
+0.16.4
+- Keep Source Select free of background AllDebrid transfers.
+- Report the last fresh search and where each scraper lost results.
+
 0.16.3
 - Use MDM Link first in Auto with bounded CocoScrapers fallback.
 - Show the scraper used in the latest Autoplay diagnostic.

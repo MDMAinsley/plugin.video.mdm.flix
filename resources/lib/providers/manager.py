@@ -15,6 +15,7 @@ def auto(addon):
 class ProviderManager:
     def __init__(self, addon, core=None, log=None):
         self.addon, self.core, self.log = addon, core, log
+        self.search_report = {}
 
     def get_provider(self, name=None):
         if name is None:
@@ -50,15 +51,32 @@ class ProviderManager:
         return provider
 
     def _search(self, provider, item):
-        rows = normalise_sources(provider.search_sources(item), provider.provider_id, provider.name)
+        status = self.search_report.setdefault(provider.provider_id, {})
+        try:
+            results = provider.search_sources(item)
+        except (Cancelled, AutoplayBudgetExpired):
+            status['result'] = 'cancelled or timed out'
+            raise
+        except PlaybackError:
+            status['result'] = 'search failed'
+            raise
+        finally:
+            if provider.provider_id == 'mdm_link' and isinstance(provider.search_report, dict):
+                status.update(provider.search_report)
+        rows = normalise_sources(results, provider.provider_id, provider.name)
+        status['returned'] = len(rows)
         rows = device_policy.filter_rows(self.addon, [row for row in rows if usable(row)])
-        return connection_policy.select(self.addon, rows)
+        rows = connection_policy.select(self.addon, rows)
+        status['flix_eligible'] = len(rows)
+        status['result'] = 'results' if rows else 'no eligible sources'
+        return rows
 
     def _coco_fallback(self, item):
         from resources.lib.kodi_addons import get_addon
         link = get_addon('script.mdm.link')
         if (link and api.mode(link) == 'Free') or not item.get('imdb_id'):
             return []
+        self.search_report['cocoscrapers'] = {'result': 'unavailable or needs authorisation'}
         return self._search(self._configured_provider('CocoScrapers'), item)
 
     def search_sources(self, item, fallback=False):
@@ -69,6 +87,7 @@ class ProviderManager:
             return self._coco_fallback(item)
 
         link_error = None
+        self.search_report['mdm_link'] = {'result': 'unavailable'}
         try:
             rows = self._search(self.get_provider('MDM Link'), item)
             if rows:

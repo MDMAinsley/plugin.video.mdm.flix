@@ -24,6 +24,7 @@ class MDMLinkProvider:
 
     def __init__(self,addon=None,core=None,log=None):
         self.addon=get_addon(self.addon_id)
+        self.search_report = {}
         if API_VERSION!=1: raise PlaybackError('MDM Link API is incompatible. Update Link and Flix together.')
         if self.addon and addon: api.migrate(self.addon,addon)
 
@@ -34,11 +35,13 @@ class MDMLinkProvider:
         api.configured(self.addon)
 
     def search_sources(self,item):
+        self.search_report.update(mode=api.mode(self.addon), debrid_ready=api.debrid_ready(self.addon))
         self.configured()
         progress=xbmcgui.DialogProgress(); progress.create('MDM Link','Searching enabled providers…')
         monitor=xbmc.Monitor()
         try:
-            rows=api.search(self.addon,item,lambda:progress.iscanceled() or monitor.abortRequested(),progress.update)
+            rows=api.search(self.addon,item,lambda:progress.iscanceled() or monitor.abortRequested(),
+                            progress.update,diagnostic=self.search_report.update)
             status=api.status(self.addon)
             failures=[s for s in status['last_search'] if s['status']!='ok']
             if failures and rows: xbmcgui.Dialog().notification('MDM Link','Some providers failed or timed out; showing available results.',xbmcgui.NOTIFICATION_INFO,3000)

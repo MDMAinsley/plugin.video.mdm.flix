@@ -16,13 +16,28 @@ def diagnostics(nav, addon, core):
         coco.getAddonInfo("version") if coco else "missing / disabled",
         addon.getSetting("scraper_provider") or "Auto", addon.getSetting("playback_mode") or "Source Select",
         "yes" if debrid.enabled else "no", "configured" if debrid.key else "missing")
+    import json
+    from resources.lib.playback.resolver import latest_search
+    search = latest_search()
+    for identifier, label in (('mdm_link', 'MDM Link'), ('cocoscrapers', 'CocoScrapers')):
+        row = search.get(identifier, {})
+        if not row:
+            continue
+        text += '\n\nLast fresh {} search: {}'.format(label, row['result'])
+        if 'found' in row:
+            text += '\nFound {} · Link eligible {} · Flix eligible {}'.format(
+                row['found'], row['eligible'], row.get('flix_eligible', 0))
+            for entry in row['providers']:
+                text += '\n{}: {} ({} sources)'.format(entry['provider'], entry['status'], entry['sources'])
+        elif 'flix_eligible' in row:
+            text += '\nFlix eligible: {}'.format(row['flix_eligible'])
+        if 'mode' in row:
+            text += '\nLink mode: {} · AllDebrid ready: {}'.format(row['mode'], 'yes' if row['debrid_ready'] else 'no')
     link = get_addon('script.mdm.link')
     if link:
         from mdmlink.api import status
-        import json
         text += '\n\nMDM Link status (no credentials/addresses):\n' + json.dumps(status(link), indent=2)
     from resources.lib.playback.autoplay import diagnostic
-    import json
     text += '\n\nLatest Autoplay attempt (fresh file; updated_utc is UTC; handoff is not playback confirmation):\n' + json.dumps(diagnostic(addon), indent=2)
     from resources.lib.playback.stream_match import text as matching_text
     text += "\n\n"+matching_text(addon)
