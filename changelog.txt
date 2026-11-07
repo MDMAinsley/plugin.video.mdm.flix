@@ -1,3 +1,6 @@
+0.16.5
+- Show provider HTTP, DNS, TLS and timeout details in fresh search diagnostics.
+
 0.16.4
 - Keep Source Select free of background AllDebrid transfers.
 - Report the last fresh search and where each scraper lost results.

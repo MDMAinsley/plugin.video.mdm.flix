@@ -28,7 +28,11 @@ def diagnostics(nav, addon, core):
             text += '\nFound {} · Link eligible {} · Flix eligible {}'.format(
                 row['found'], row['eligible'], row.get('flix_eligible', 0))
             for entry in row['providers']:
-                text += '\n{}: {} ({} sources)'.format(entry['provider'], entry['status'], entry['sources'])
+                detail = entry.get('reason', '').replace('_', ' ')
+                if entry.get('http_status'):
+                    detail = 'HTTP {}'.format(entry['http_status'])
+                text += '\n{}: {}{} ({} sources)'.format(
+                    entry['provider'], entry['status'], ' · '+detail if detail else '', entry['sources'])
         elif 'flix_eligible' in row:
             text += '\nFlix eligible: {}'.format(row['flix_eligible'])
         if 'mode' in row:
