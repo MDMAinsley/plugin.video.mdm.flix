@@ -31,8 +31,9 @@ def diagnostics(nav, addon, core):
                 detail = entry.get('reason', '').replace('_', ' ')
                 if entry.get('http_status'):
                     detail = 'HTTP {}'.format(entry['http_status'])
-                text += '\n{}: {}{} ({} sources)'.format(
-                    entry['provider'], entry['status'], ' · '+detail if detail else '', entry['sources'])
+                route = ' · proxy' if entry.get('route') == 'proxy' else ''
+                text += '\n{}: {}{}{} ({} sources)'.format(
+                    entry['provider'], entry['status'], ' · '+detail if detail else '', route, entry['sources'])
         elif 'flix_eligible' in row:
             text += '\nFlix eligible: {}'.format(row['flix_eligible'])
         if 'mode' in row:

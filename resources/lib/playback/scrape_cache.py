@@ -6,6 +6,7 @@ import os
 import xbmcgui
 import xbmcvfs
 
+from mdmlink.engine import CUSTOM_PROVIDER_SLOTS
 from resources.lib.kodi_addons import get_addon
 
 PROPERTY = 'plugin.video.mdm.flix.scrapes.v1'
@@ -20,11 +21,11 @@ FLIX_SETTINGS = (
 )
 LINK_SETTINGS = (
     'source_mode', 'alldebrid_enabled', 'alldebrid_api_key', 'provider_archive',
-    'provider_torrentio', 'device_quality_max', 'device_unknown_quality',
+    'provider_torrentio', 'provider_torrentio_proxy', 'device_quality_max', 'device_unknown_quality',
     'device_max_size_gib', 'device_unknown_size', 'device_connection_mbps',
     'device_unknown_bitrate', 'device_slow_sources', 'device_source_order',
     'device_search_timeout', 'device_request_timeout', 'device_workers',
-) + tuple(f'provider_stream_{slot}_{field}' for slot in range(1, 4) for field in ('enabled', 'url'))
+) + tuple(f'provider_stream_{slot}_{field}' for slot in range(1, CUSTOM_PROVIDER_SLOTS + 1) for field in ('enabled', 'url'))
 
 
 def key(addon, item, fallback=False):
