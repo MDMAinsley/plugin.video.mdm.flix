@@ -1,3 +1,6 @@
+0.16.7
+- Show the selected IPv4 route in diagnostics and invalidate stale source searches when it changes.
+
 0.16.6
 - Track Link backup feed and proxy settings in the scrape cache.
 - Show proxy use in source search diagnostics.

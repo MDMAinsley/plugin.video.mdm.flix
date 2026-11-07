@@ -31,7 +31,7 @@ def diagnostics(nav, addon, core):
                 detail = entry.get('reason', '').replace('_', ' ')
                 if entry.get('http_status'):
                     detail = 'HTTP {}'.format(entry['http_status'])
-                route = ' · proxy' if entry.get('route') == 'proxy' else ''
+                route = {'proxy':' · proxy', 'cloudflare_ipv4':' · Cloudflare IPv4'}.get(entry.get('route'), '')
                 text += '\n{}: {}{}{} ({} sources)'.format(
                     entry['provider'], entry['status'], ' · '+detail if detail else '', route, entry['sources'])
         elif 'flix_eligible' in row:
