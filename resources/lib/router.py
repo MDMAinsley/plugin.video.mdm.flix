@@ -118,7 +118,12 @@ class Router:
             xbmc.executebuiltin("ActivateWindow(favouritesbrowser)")
             return
 
-        elif action in ("library_home", "library_view"):
+        elif action in ("library_home_list_choose", "library_home_list_label"):
+            from resources.lib.library_ui import home_list_action
+            home_list_action(self.addon, choose=action == "library_home_list_choose")
+            return
+
+        elif action in ("library_home", "library_view", "library_home_list"):
             from resources.lib.library_ui import show
             show(nav, self.addon, self.core, self.params)
 

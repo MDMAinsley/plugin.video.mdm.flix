@@ -31,8 +31,8 @@ def add_title(nav, addon, label, media, identifier, artwork=None, info=None,
         query=urlencode(dict(params,action='sources',refresh='1'))
         context.append(('Refresh sources and timings','ActivateWindow(Videos,plugin://plugin.video.mdm.flix/?'+query+',return)'))
         context.append(('Timing match report',command('matching_report')))
-    if media=='movie' or is_episode:
-        context.append(("Playback and My List", "ActivateWindow(Videos,plugin://plugin.video.mdm.flix/?"+urlencode(dict(params,action="progress_details"))+",return)"))
+    context.append(("Title actions", "ActivateWindow(Videos,plugin://plugin.video.mdm.flix/?"+
+                    urlencode(dict(params,action="progress_details"))+",return)"))
     context.extend(extra_context or [])
     common = dict(params=params, artwork=artwork, info=info, context_menu=context)
     if media == "tv" and not is_episode:

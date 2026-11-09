@@ -61,6 +61,9 @@ class Navigator:
             isFolder=False,
         )
 
+    def category(self, label):
+        xbmcplugin.setPluginCategory(self.handle, label)
+
     def end(self, content_type=None):
         if content_type:
             xbmcplugin.setContent(self.handle, content_type)

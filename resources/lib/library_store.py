@@ -107,6 +107,22 @@ class Library:
         with self.db() as db:
             return [dict(row) for row in db.execute('SELECT l.id,l.name,count(m.tmdb_id) AS count FROM lists l LEFT JOIN members m ON m.list_id=l.id GROUP BY l.id ORDER BY l.id LIMIT 20')]
 
+    def home_list(self):
+        with self.db() as db:
+            if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='home_list'").fetchone():
+                row = db.execute('SELECT l.id,l.name FROM home_list h JOIN lists l ON l.id=h.list_id').fetchone()
+                if row:
+                    return dict(row)
+            return dict(db.execute('SELECT id,name FROM lists WHERE id=1').fetchone())
+
+    def select_home_list(self, identifier):
+        with self.db(True) as db:
+            identifier = self._list(db, identifier)
+            # Additive table, so a previous Flix release can still read and edit this library.
+            db.execute('CREATE TABLE IF NOT EXISTS home_list (slot INTEGER PRIMARY KEY CHECK(slot=1), '
+                       'list_id INTEGER NOT NULL REFERENCES lists(id) ON DELETE CASCADE)')
+            db.execute('INSERT OR REPLACE INTO home_list VALUES(1,?)', (identifier,))
+
     def create(self, name):
         name = clean_name(name)
         with self.db(True) as db:

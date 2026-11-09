@@ -20,6 +20,29 @@ def title_row(library, addon, core, media, identifier):
     return library.get(media,identifier) or metadata(TMDB(addon,core).details(media,identifier),media,identifier)
 
 
+def update_home_list_label(library):
+    name = library.home_list()['name']
+    # User names are plain text, even when they contain Kodi label markup characters.
+    xbmcgui.Window(10000).setProperty('mdm_home_list_label', name.replace('[','［').replace(']','］'))
+
+
+def home_list_action(addon, choose=False):
+    try:
+        library = Library(addon)
+        if choose:
+            lists = library.lists()
+            current = library.home_list()['id']
+            selected = next((i for i,row in enumerate(lists) if row['id']==current),0)
+            choice = xbmcgui.Dialog().select('Home list shortcut', [row['name'] for row in lists],
+                                             preselect=selected)
+            if 0 <= choice < len(lists):
+                library.select_home_list(lists[choice]['id'])
+        update_home_list_label(library)
+    except LibraryError as error:
+        if choose:
+            xbmcgui.Dialog().ok('Home list shortcut',str(error))
+
+
 def show(nav, addon, core, params):
     try:
         library=Library(addon)
@@ -35,7 +58,8 @@ def show(nav, addon, core, params):
                 nav.add_folder('{} ({})'.format(row['name'],row['count']),'library_view',params={'list_id':row['id']},context_menu=context)
             nav.add_action('Create a list…','library_create')
             nav.end('videos');return
-        identifier=params.get('list_id')
+        home_list = params.get('action')=='library_home_list'
+        identifier=library.home_list()['id'] if home_list else params.get('list_id')
         kind=params.get('filter','all')
         rows=library.rows(identifier,kind)
         from resources.lib.catalogue.cards import add_title
@@ -109,6 +133,8 @@ def action(addon, core, params):
                     library.rate(row,choice);changed=True
             else:raise LibraryError('Unknown library action.')
         if changed:
+            if operation in ('library_rename','library_delete'):
+                update_home_list_label(library)
             xbmcgui.Dialog().notification('My Library','Saved on this device.',xbmcgui.NOTIFICATION_INFO,2000)
             xbmc.executebuiltin('Container.Refresh')
     except (LibraryError,CatalogueError) as error:

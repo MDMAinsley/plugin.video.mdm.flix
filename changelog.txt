@@ -1,3 +1,7 @@
+0.16.9
+- Add title action pages for films, shows and episodes with prominent Play, Resume or Browse episodes.
+- Let the MDM home shortcut open any existing local list.
+
 0.16.8
 - Save the latest owned playback position on Stop, seek and Kodi exit, with durable checkpoints.
 - Keep precise positions through Resume and open playback and My List actions before a title is watched.
