@@ -1,3 +1,7 @@
+0.16.8
+- Save the latest owned playback position on Stop, seek and Kodi exit, with durable checkpoints.
+- Keep precise positions through Resume and open playback and My List actions before a title is watched.
+
 0.16.7
 - Show the selected IPv4 route in diagnostics and invalidate stale source searches when it changes.
 

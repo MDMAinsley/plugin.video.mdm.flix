@@ -75,7 +75,9 @@ class Store:
         try:
             item=clean(json.loads(row['item']))
             if key(item)!=row['identity']:return None
-            return dict(item=item,position=seconds(row['position']),duration=seconds(row['duration']),watched=bool(row['watched']),updated=row['updated'])
+            position=seconds(row['position']);watched=bool(row['watched'])
+            return dict(item=item,position=0 if watched else position,last_position=position,
+                        duration=seconds(row['duration']),watched=watched,updated=row['updated'])
         except (ValueError,TypeError,KeyError,ProgressError):return None
 
     def get(self,item):
@@ -91,7 +93,7 @@ class Store:
             if not exists and db.execute('SELECT count(*) FROM progress').fetchone()[0]>=MAX_RECORDS:
                 raise ProgressError('This device has 1000 viewing records. Remove old records in Viewing History to save new ones.')
             db.execute('INSERT INTO progress VALUES(?,?,?,?,?,?) ON CONFLICT(identity) DO UPDATE SET item=excluded.item,position=excluded.position,duration=excluded.duration,watched=excluded.watched,updated=excluded.updated',
-                       (identity,json.dumps(item,ensure_ascii=False),0 if watched else position,duration,int(watched),int(time.time())))
+                       (identity,json.dumps(item,ensure_ascii=False),position,duration,int(watched),int(time.time())))
 
     def rows(self,continuing=True):
         with self.db() as db:

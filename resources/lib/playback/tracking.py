@@ -6,7 +6,7 @@ import uuid
 from contextlib import contextmanager
 from contextvars import ContextVar
 import xbmcgui
-from resources.lib.playback.progress import Store,clean,ProgressError
+from resources.lib.playback.progress import Store,clean,ProgressError,seconds
 from resources.lib.playback.errors import Cancelled
 
 PROPERTY='mdm.flix.progress'
@@ -33,11 +33,11 @@ def stamp(listitem):
     except ProgressError as error:
         xbmcgui.Dialog().notification('MDM Flix',str(error));previous=None
     if previous and not previous['watched'] and previous['position']>=30:
-        at=int(previous['position'])
+        position=previous['position'];at=int(position)
         mode=row.get('_progress_mode')
         choice=0 if mode=='resume' else 1 if mode=='restart' else xbmcgui.Dialog().select('Continue watching?', ['Resume from {}:{:02d}'.format(at//60,at%60),'Start again'])
         if choice<0:raise Cancelled('Resume cancelled.')
-        if choice==0:resume=at
+        if choice==0:resume=position
     payload=dict(schema=1,token=uuid.uuid4().hex,created=int(time.time()),item=item,resume=resume)
     from resources.lib.playback.chapter_facts import fingerprint
     chapter_key=fingerprint(row)
@@ -56,7 +56,7 @@ def read(listitem):
         if not isinstance(value.get('token'),str) or not re.fullmatch('[0-9a-f]{32}',value['token']):return None
         now=int(time.time());created=value.get('created');resume=value.get('resume')
         if type(created) is not int or not 0<=now-created<=300:return None
-        if type(resume) is not int or not 0<=resume<=86400:return None
+        resume=seconds(resume)
         result=dict(token=value['token'],item=clean(value.get('item')),resume=resume)
         chapter_key=value.get('chapter_key')
         if isinstance(chapter_key,str) and re.fullmatch('[0-9a-f]{64}',chapter_key):result['chapter_key']=chapter_key

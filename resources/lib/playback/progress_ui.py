@@ -33,13 +33,15 @@ def show(nav,addon,core,params):
                 nav.add_folder(text,'progress_details',params=identity_params(item),artwork=item['artwork'],info={'title':item['title'],'plot':item['plot'],'mediatype':item['media_type']})
             if not rows:nav.add_action('Nothing here yet — progress appears after watching for at least 30 seconds.','progress_help')
             nav.end('videos');return
-        row=store.get(requested(params))
-        if not row:
-            xbmcgui.Dialog().ok('Viewing progress','No saved progress for this title yet.');nav.end();return
-        item=row['item'];at=int(row['position']);common=identity_params(item)
-        if not row['watched'] and at>=30:play_entry(nav,addon,'Resume from {}:{:02d}'.format(at//60,at%60),item,'resume')
-        play_entry(nav,addon,'Start again' if at or row['watched'] else 'Play',item,'restart')
-        nav.add_action('Mark unwatched' if row['watched'] else 'Mark watched','progress_mark',params=dict(common,watched='false' if row['watched'] else 'true'))
+        item=requested(params)
+        row=store.get(item)
+        at=int(row['position']) if row else 0
+        common=identity_params(item)
+        if addon.getSetting('progress_enabled')!='false' and at>=30:
+            play_entry(nav,addon,'Resume from {}:{:02d}'.format(at//60,at%60),item,'resume')
+        play_entry(nav,addon,'Start again' if at or row and row['watched'] else 'Play',item,'restart')
+        if row:
+            nav.add_action('Mark unwatched' if row['watched'] else 'Mark watched','progress_mark',params=dict(common,watched='false' if row['watched'] else 'true'))
         from resources.lib.library_store import Library,LibraryError
         try:
             media='tv' if item['media_type']=='episode' else 'movie'
@@ -47,7 +49,7 @@ def show(nav,addon,core,params):
         except LibraryError:saved=False
         nav.add_action('Remove from My List' if saved else 'Save to My List','progress_unsave' if saved else 'progress_save',params=common)
         nav.add_action('Lists / Your rating…','progress_lists',params=common)
-        nav.add_action('Clear viewing record…','progress_clear',params=common)
+        if row:nav.add_action('Clear viewing record…','progress_clear',params=common)
         nav.end('videos')
     except ProgressError as error:xbmcgui.Dialog().ok('Viewing progress',str(error));nav.end()
 
@@ -57,9 +59,11 @@ def action(addon,core,params):
     try:
         if params.get('action')=='progress_help':
             xbmcgui.Dialog().ok('Continue Watching','Progress is saved on this device after MDM video starts. Watch at least 30 seconds, then stop. MDBList connection and cross-device sync are coming in the next tracking stage.');return
-        item=requested(params);store=Store(addon);row=store.get(item)
-        if not row:raise ProgressError('No viewing record remains for this title.')
-        item=row['item'];operation=params.get('action')
+        item=requested(params);operation=params.get('action')
+        if operation in ('progress_mark','progress_clear'):
+            store=Store(addon);row=store.get(item)
+            if not row:raise ProgressError('No viewing record remains for this title.')
+            item=row['item']
         if operation=='progress_mark':
             if params.get('watched') not in ('true','false'):raise ProgressError('Invalid watched action.')
             store.save(item,0,row['duration'],params['watched']=='true')

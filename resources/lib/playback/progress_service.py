@@ -6,9 +6,11 @@ import xbmcgui
 from resources.lib.playback import tracking
 from resources.lib.playback.progress import Store,ProgressError,seconds
 
+CHECKPOINT_INTERVAL = 10
+
 class Observer(xbmc.Player):
     def __init__(self,addon):
-        super().__init__();self.addon=addon;self.active=None;self.position=0;self.duration=0;self.saved=0;self.warned=False;self.observed=False;self.seek_pending=0;self.seek_deadline=0;self.lock=threading.RLock()
+        super().__init__();self.addon=addon;self.active=None;self.position=0;self.duration=0;self.saved=0;self.last_written=None;self.warned=False;self.observed=False;self.seek_pending=0;self.seek_deadline=0;self.lock=threading.RLock()
 
     def current_token(self):
         try:
@@ -27,6 +29,8 @@ class Observer(xbmc.Player):
         if not self.active or self.current_token()!=self.active['token']:return False
         try:
             position=seconds(self.getTime());duration=seconds(self.getTotalTime())
+            # Player reads are separate calls. Discard a sample taken across a handoff.
+            if self.current_token()!=self.active['token']:return False
             if self.seek_pending:
                 if position<max(1,self.seek_pending-10):
                     if time.monotonic()>=self.seek_deadline:
@@ -37,15 +41,16 @@ class Observer(xbmc.Player):
             self.position=position;self.duration=duration;self.observed=True;return True
         except (RuntimeError,ProgressError):return False
 
-    def write(self,force=False,ended=False):
+    def write(self,force=False,failed=False):
         if not self.active or not self.observed:return
         if self.addon.getSetting('progress_enabled')=='false':self.active=None;return
-        if not force and time.monotonic()-self.saved<15:return
-        # A failed player or unknown/very short duration never auto-completes.
-        watched=bool(self.duration>=60 and self.position>=self.duration*.9)
-        if ended and self.duration>=60 and self.position>=self.duration*.9:watched=True
+        if not force and time.monotonic()-self.saved<CHECKPOINT_INTERVAL:return
+        watched=not failed and self.duration>=60 and self.position>=self.duration*.9
+        checkpoint=(self.position,self.duration,watched)
+        if checkpoint==self.last_written:return
         try:
-            Store(self.addon).save(self.active['item'],self.position,self.duration,watched)
+            Store(self.addon).save(self.active['item'],*checkpoint)
+            self.last_written=checkpoint
         except ProgressError as error:self.warning(str(error))
         self.saved=time.monotonic()
 
@@ -54,13 +59,14 @@ class Observer(xbmc.Player):
         next_prompt.clear()
         with self.lock:
             try:
-                if self.addon.getSetting('progress_enabled')=='false' or not self.isPlayingVideo():return
-                candidate=tracking.read(self.getPlayingItem())
+                if self.addon.getSetting('progress_enabled')=='false':
+                    self.active=None;return
+                candidate=tracking.read(self.getPlayingItem()) if self.isPlayingVideo() else None
                 if self.active and candidate and candidate['token']==self.active['token']:return
                 if self.active:self.write(True)
                 self.active=None
                 if not candidate:return
-                self.active=candidate;self.position=0;self.duration=0;self.saved=0;self.warned=False;self.observed=False;self.seek_pending=0
+                self.active=candidate;self.position=0;self.duration=0;self.last_written=None;self.warned=False;self.observed=False;self.seek_pending=0
                 resume=candidate['resume']
                 if resume:
                     duration=seconds(self.getTotalTime())
@@ -88,9 +94,21 @@ class Observer(xbmc.Player):
         with self.lock:
             if self.sample():self.write(True)
 
-    def finish(self,ended=False):
+    def onPlayBackSeek(self,time,seekOffset):
         with self.lock:
-            if self.active:self.write(True,ended)
+            if self.sample():self.write(True)
+
+    def onPlayBackSeekChapter(self,chapter):
+        with self.lock:
+            if self.sample():self.write(True)
+
+    def finish(self):
+        with self.lock:
+            # Kodi can clear the player before Stop or Exit reaches Python.
+            # The latest owned sample survives when the final read is unavailable.
+            if self.active:
+                self.sample()
+                self.write(True)
             self.active=None
 
     def onPlayBackStopped(self):
@@ -100,15 +118,13 @@ class Observer(xbmc.Player):
     def onPlayBackEnded(self):
         from resources.lib.playback import next_prompt
         next_prompt.ended()
-        self.finish(True)
+        self.finish()
     def onPlayBackError(self):
         from resources.lib.playback import next_prompt
         next_prompt.clear()
         # Preserve the last confirmed checkpoint; an error is not completion.
         with self.lock:
-            if self.active and self.observed and self.addon.getSetting('progress_enabled')!='false':
-                try:Store(self.addon).save(self.active['item'],self.position,self.duration,False)
-                except ProgressError as error:self.warning(str(error))
+            self.write(True,failed=True)
             self.active=None
 
 def run(addon):
@@ -129,6 +145,9 @@ def run(addon):
             observer.tick();controls.tick()
     finally:
         try:
-            controls.close();observer.finish()
+            try:
+                observer.finish()
+            finally:
+                controls.close()
         finally:
             clear_sources(profile)
