@@ -1,3 +1,6 @@
+0.17.11
+- Add on-demand Watch Trailer to Home and browsing title actions, with YouTube setup and no viewing-progress tracking.
+
 0.17.10
 - Recover incomplete saved artwork in the background and size it for the device.
 

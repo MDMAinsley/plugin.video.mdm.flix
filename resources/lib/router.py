@@ -110,6 +110,11 @@ class Router:
             play_next(self.addon,self.core,self.params)
             return
 
+        elif action == 'trailer_play':
+            from resources.lib.catalogue.trailers import play
+            play(self.addon, self.core, self.params)
+            return
+
         elif action == "home_title":
             from resources.lib.home_title import show
             show(nav, self.addon, self.core, self.params)

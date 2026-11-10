@@ -13,6 +13,7 @@ class TitleActions:
         self.plot = ''
         self.image = ''
         self.entries = []
+        self.selected = 0
 
     def category(self, title):
         self.title = title
@@ -46,6 +47,7 @@ def choose(actions):
             entries = self.getControl(101)
             entries.reset()
             entries.addItems([xbmcgui.ListItem(label=label) for label, _, _ in actions.entries])
+            entries.selectItem(actions.selected)
             self.setFocusId(101)
 
         def onClick(self, control):
@@ -71,10 +73,19 @@ def show(nav, addon, core, params):
     progress_ui.show(actions, addon, core, dict(params, action='progress_details'))
     if not actions.entries:
         return
-    try:
-        selected = choose(actions)
-    except (AttributeError, RuntimeError):
-        selected = xbmcgui.Dialog().select(actions.title, [label for label, _, _ in actions.entries])
-    if 0 <= selected < len(actions.entries):
+    while True:
+        try:
+            selected = choose(actions)
+        except (AttributeError, RuntimeError):
+            selected = xbmcgui.Dialog().select(actions.title, [label for label, _, _ in actions.entries], preselect=actions.selected)
+        if not 0 <= selected < len(actions.entries):
+            return
         _, command, target = actions.entries[selected]
+        if target['action'] == 'trailer_play':
+            from resources.lib.catalogue.trailers import play
+            if play(addon, core, target):
+                return
+            actions.selected = selected
+            continue
         xbmc.executebuiltin(command.format(nav.build_url(**target)))
+        return
