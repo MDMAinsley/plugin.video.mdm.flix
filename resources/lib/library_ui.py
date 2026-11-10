@@ -21,13 +21,17 @@ def title_row(library, addon, core, media, identifier):
     return library.get(media,identifier) or metadata(TMDB(addon,core).details(media,identifier),media,identifier)
 
 
-def card_metadata(row, addon):
+def card_metadata(row, addon, core=None, pending=None):
     from resources.lib.catalogue.browse import artwork, info
 
     raw = dict(id=row['tmdb_id'], title=row['title'], name=row['title'], release_date=row['date'],
                first_air_date=row['date'], overview=row['plot'], poster_path=row['poster'],
                backdrop_path=row['backdrop'])
-    return dict(artwork=artwork(raw, addon=addon), info=info(raw, 'movie' if row['media']=='movie' else 'tvshow'))
+    from resources.lib.catalogue.artwork_recovery import enrich
+    images, needed = enrich(addon, core, row['media'], row['tmdb_id'], artwork(raw, addon=addon))
+    if needed and pending is not None:
+        pending.append(needed)
+    return dict(artwork=images, info=info(raw, 'movie' if row['media']=='movie' else 'tvshow'))
 
 
 def update_home_list_label(library):
@@ -74,8 +78,9 @@ def show(nav, addon, core, params):
         kind=params.get('filter','all')
         rows=library.rows(identifier,kind)
         from resources.lib.catalogue.cards import add_title
+        pending=[]
         for row in rows:
-            card = card_metadata(row, addon)
+            card = card_metadata(row, addon, core, pending)
             card['info']['plot']+='\n\nYour rating: '+(str(row['personal_rating'])+'/10' if row['personal_rating'] else 'not rated')
             label=row['title']+(' [Film]' if row['media']=='movie' else ' [TV]')
             if row['personal_rating']:
@@ -87,6 +92,8 @@ def show(nav, addon, core, params):
             add_title(nav,addon,label,row['media'],row['tmdb_id'],extra_context=context,**card)
         if not rows:
             nav.add_action('No titles here yet. Use a title’s My Library context menu to save or rate it.','library_help')
+        from resources.lib.catalogue.artwork_recovery import request
+        request('my_list',pending)
         nav.end('videos')
     except (LibraryError,CatalogueError) as error:
         xbmcgui.Dialog().ok('My Library',str(error));nav.end()

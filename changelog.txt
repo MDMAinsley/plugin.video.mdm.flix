@@ -1,3 +1,6 @@
+0.17.10
+- Recover incomplete saved artwork in the background and size it for the device.
+
 0.17.9
 - Show one Continue Watching card per series, advance to the next known aired episode, and surface episode progress in the browser.
 

@@ -30,10 +30,21 @@ def play_entry(nav,addon,label,item,mode,**metadata):
     if addon.getSetting('playback_mode')=='Autoplay':nav.add_playable(label,'autoplay',params=params,**metadata)
     else:nav.add_folder(label,'sources',params=params,**metadata)
 
-def title_metadata(addon,core,item,row):
+def title_metadata(addon,core,item,row,*,cache_only=False,pending=None):
     if row:
+        from resources.lib.catalogue.artwork_recovery import enrich
         saved=row['item']
-        return dict(artwork=saved['artwork'],info={
+        media='movie' if saved['media_type']=='movie' else 'tv'
+        images, needed=enrich(addon,core,media,saved['tmdb_id'],saved['artwork'])
+        if needed and core is not None and not cache_only:
+            try:
+                TMDB(addon,core).details(media,saved['tmdb_id'])
+                images, needed=enrich(addon,core,media,saved['tmdb_id'],images)
+            except CatalogueError:
+                pass
+        if needed and pending is not None:
+            pending.append(needed)
+        return dict(artwork=images,info={
             'title':label(saved),'plot':saved['plot'],'mediatype':saved['media_type']})
     if core is None:
         return {}
@@ -43,12 +54,14 @@ def title_metadata(addon,core,item,row):
         return {}
     media=item['media_type'];identifier=item['tmdb_id']
     try:
+        parent=None
         if media=='episode':
             raw=client.request('tv/{}/season/{}/episode/{}'.format(identifier,item['season'],item['episode']),ttl=3600)
+            parent=client.details('tv',identifier)
         else:
             raw=client.details(media,identifier)
         kind='tvshow' if media=='tv' else media
-        return dict(artwork=artwork(raw,addon=addon),info=info(raw,kind))
+        return dict(artwork=artwork(raw,parent,addon=addon),info=info(raw,kind,parent))
     except CatalogueError:
         return {}
 
@@ -125,10 +138,14 @@ def show(nav,addon,core,params):
         if params.get('action') in ('continue_watching','viewing_history'):
             continuing=params['action']=='continue_watching'
             rows=continued(store,addon,core) if continuing else store.rows(False)
+            pending=[]
             for row in rows:
                 item=row['item']
                 text=continuation_label(row) if continuing or not row['watched'] else label(item)+' · Watched'
-                nav.add_folder(text,'progress_details',params=identity_params(item),artwork=item['artwork'],info={'title':item['title'],'plot':item['plot'],'mediatype':item['media_type']})
+                nav.add_folder(text,'progress_details',params=identity_params(item),
+                               **title_metadata(addon,core,item,row,cache_only=True,pending=pending))
+            from resources.lib.catalogue.artwork_recovery import request
+            request('progress',pending)
             if not rows:nav.add_action('Nothing here yet — progress appears after watching for at least 30 seconds.','progress_help')
             nav.end('videos');return
         item=title_identity(params)
