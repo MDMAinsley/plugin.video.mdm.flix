@@ -1,13 +1,18 @@
 """Quiet, bounded home rows. No playback/provider calls or pagination."""
+from urllib.parse import urlencode
 from resources.lib.catalogue.tmdb import TMDB, CatalogueError, number
 from resources.lib.catalogue.browse import info, artwork
 
 ROW_LIMIT = 12
 
 
+def title_link(**identity):
+    return {'mdm_home_title': 'plugin://plugin.video.mdm.flix/?' + urlencode(dict(identity, action='home_title'))}
+
+
 def show_continue(nav, addon):
     from resources.lib.playback.progress import ProgressError, display_position
-    from resources.lib.playback.progress_ui import label, play_entry, title_metadata
+    from resources.lib.playback.progress_ui import identity_params, label, play_entry, title_metadata
     from resources.lib.playback.viewing import Viewing
 
     if addon.getSetting('progress_enabled') != 'false':
@@ -15,7 +20,8 @@ def show_continue(nav, addon):
             for row in Viewing(addon).rows()[:ROW_LIMIT]:
                 item = row['item']
                 text = label(item) + ' · ' + display_position(row['position'])
-                play_entry(nav, addon, text, item, 'resume', **title_metadata(addon, None, item, row))
+                play_entry(nav, addon, text, item, 'resume', properties=title_link(**identity_params(item)),
+                           **title_metadata(addon, None, item, row))
         except ProgressError:
             pass
     nav.end('videos', cache=False)
@@ -29,7 +35,9 @@ def show_home_list(nav, addon):
     try:
         library = Library(addon)
         for row in library.rows(library.home_list()['id'], limit=ROW_LIMIT):
-            add_title(nav, addon, row['title'], row['media'], row['tmdb_id'], **card_metadata(row, addon))
+            add_title(nav, addon, row['title'], row['media'], row['tmdb_id'],
+                      properties=title_link(media_type=row['media'], tmdb_id=row['tmdb_id']),
+                      **card_metadata(row, addon))
     except (LibraryError, CatalogueError):
         pass
     nav.end('videos', cache=False)
@@ -65,7 +73,8 @@ def show(nav, addon, core, params):
             metadata = info(raw, "movie" if media == "movie" else "tvshow")
             from resources.lib.catalogue.cards import add_title
             add_title(nav, addon, metadata["title"], media, identifier,
-                      artwork=artwork(raw, addon=addon), info=metadata)
+                      artwork=artwork(raw, addon=addon), info=metadata,
+                      properties=title_link(media_type=media, tmdb_id=identifier))
             count += 1
             if count == ROW_LIMIT:
                 break

@@ -1,3 +1,6 @@
+0.17.8
+- Open a dedicated Home title view with Play, Resume, episodes and list actions.
+
 0.17.7
 - Supply quiet Home rows for Continue Watching and the selected list.
 

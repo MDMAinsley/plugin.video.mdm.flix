@@ -6,7 +6,7 @@ from resources.lib.catalogue.tmdb import TMDB, CatalogueError, number
 
 
 def add_title(nav, addon, label, media, identifier, artwork=None, info=None,
-              season=None, episode=None, extra_context=None):
+              season=None, episode=None, extra_context=None, properties=None):
     if media not in ("movie", "tv"):
         raise CatalogueError("Invalid title type.")
     params = {"media_type": media, "tmdb_id": number(identifier, 1)}
@@ -35,6 +35,8 @@ def add_title(nav, addon, label, media, identifier, artwork=None, info=None,
                     urlencode(dict(params,action="progress_details"))+",return)"))
     context.extend(extra_context or [])
     common = dict(params=params, artwork=artwork, info=info, context_menu=context)
+    if properties:
+        common['properties'] = properties
     if media == "tv" and not is_episode:
         nav.add_folder(label, "tv_seasons", **common)
     elif addon.getSetting("playback_mode") == "Autoplay":
