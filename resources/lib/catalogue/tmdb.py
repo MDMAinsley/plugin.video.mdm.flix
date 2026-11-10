@@ -30,9 +30,10 @@ def number(value, minimum=0, maximum=None):
 class TMDB:
     BASE = "https://api.themoviedb.org/3/"
 
-    def __init__(self, addon, core):
+    def __init__(self, addon, core, *, cache_only=False):
         self.core = core
         self.addon = addon
+        self.cache_only = cache_only
         self.token = addon.getSetting("tmdb_token").strip()
         self.key = addon.getSetting("tmdb_api_key").strip() or DEFAULT_TMDB_API_KEY
         language = addon.getSetting("tmdb_language").strip() or "en-GB"
@@ -64,6 +65,8 @@ class TMDB:
             cached = None
         if self.valid(cached, field):
             return cached
+        if self.cache_only:
+            raise CatalogueError('This catalogue page is not cached.')
         headers = {"Accept": "application/json"}
         if self.token:
             headers["Authorization"] = "Bearer " + self.token

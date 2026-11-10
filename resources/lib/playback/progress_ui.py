@@ -3,7 +3,7 @@ from contextlib import nullcontext
 import time
 import xbmc
 import xbmcgui
-from resources.lib.playback.progress import ProgressError,clean,display_position
+from resources.lib.playback.progress import ProgressError,clean,display_position,key
 from resources.lib.playback.viewing import Viewing
 from resources.lib.mdblist_account import State, MDBError
 from resources.lib.library_store import Library,LibraryError,identity
@@ -56,15 +56,78 @@ def label(item):
     if item['media_type']=='episode':return '{} · S{:02d}E{:02d} · {}'.format(item['tvshowtitle'] or 'TV',item['season'],item['episode'],item['title'])
     return item['title']
 
+
+def continued(viewing, addon, core, *, limit=40, series=None):
+    """One unfinished item per series. Offer the next aired episode when known."""
+    if addon.getSetting('progress_enabled') == 'false':
+        return []
+
+    from resources.lib.catalogue.browse import artwork
+    from resources.lib.playback.episode_ui import following
+
+    def recent(row):
+        item = row['item']
+        return (-row['updated'], -item.get('season', 0), -item.get('episode', 0), key(item))
+
+    records = sorted(viewing.rows(False), key=recent)
+    unfinished, completed, watched = {}, {}, set()
+    for row in records:
+        item = row['item']
+        episode = item['media_type'] == 'episode'
+        if series is not None and (not episode or item['tmdb_id'] != series):
+            continue
+        group = item['media_type'], item['tmdb_id']
+        if row['watched']:
+            if episode:
+                watched.add(key(item))
+                if item['season']:
+                    completed.setdefault(group, row)
+        elif row['position'] >= 30:
+            unfinished.setdefault(group, row)
+
+    candidates = sorted((completed | unfinished).values(), key=recent)
+    client = TMDB(addon, core, cache_only=series is None)
+    result = []
+    checked = 0
+    for row in candidates:
+        if len(result) == limit:
+            break
+        if not row['watched']:
+            result.append(row)
+            continue
+        if not core or not client.configured or checked >= 12:
+            continue
+        checked += 1
+        item = row['item']
+        try:
+            next_episode = following(client, item['tmdb_id'], item['season'], item['episode'],
+                                     watched=watched, include_metadata=True)
+        except CatalogueError:
+            continue
+        if next_episode:
+            identity, raw = next_episode
+            title = raw.get('name')
+            plot = raw.get('overview')
+            images = {name: url for name, url in artwork(raw, addon=addon).items() if url}
+            item = dict(identity, title=title if isinstance(title, str) and title else f"Episode {identity['episode']}",
+                        tvshowtitle=item['tvshowtitle'], plot=plot if isinstance(plot, str) else '',
+                        artwork=dict(item['artwork'], **images))
+            result.append(dict(row, item=item, watched=False, position=0, duration=0, up_next=True))
+    return result
+
+
+def continuation_label(row):
+    return label(row['item']) + (' · Next episode' if row.get('up_next') else ' · ' + display_position(row['position']))
+
 def show(nav,addon,core,params):
     try:
         store=Viewing(addon)
         if params.get('action') in ('continue_watching','viewing_history'):
             continuing=params['action']=='continue_watching'
-            rows=store.rows(continuing)
+            rows=continued(store,addon,core) if continuing else store.rows(False)
             for row in rows:
                 item=row['item']
-                text=label(item)+(' · Watched' if row['watched'] else ' · '+display_position(row['position']))
+                text=continuation_label(row) if continuing or not row['watched'] else label(item)+' · Watched'
                 nav.add_folder(text,'progress_details',params=identity_params(item),artwork=item['artwork'],info={'title':item['title'],'plot':item['plot'],'mediatype':item['media_type']})
             if not rows:nav.add_action('Nothing here yet — progress appears after watching for at least 30 seconds.','progress_help')
             nav.end('videos');return
@@ -76,11 +139,20 @@ def show(nav,addon,core,params):
         metadata=title_metadata(addon,core,item,row)
         nav.category(metadata.get('info',{}).get('title') or 'Title actions')
         if show_level:
-            nav.add_folder('Browse episodes','tv_seasons',params=common,**metadata)
+            current=continued(store,addon,core,limit=1,series=item['tmdb_id'])
+            if current:
+                target=current[0]
+                episode=target['item']
+                text='Play next' if target.get('up_next') else 'Resume'
+                play_entry(nav,addon,f"{text} S{episode['season']:02d}E{episode['episode']:02d}",episode,'resume',**metadata)
+            nav.add_folder('Episodes','tv_seasons',params=dict(common,progress_labels='1'),**metadata)
         else:
             if addon.getSetting('progress_enabled')!='false' and at>=30:
                 play_entry(nav,addon,'Resume from '+display_position(at),item,'resume',**metadata)
             play_entry(nav,addon,'Start again' if at or row and row['watched'] else 'Play',item,'restart',**metadata)
+            if item['media_type']=='episode':
+                nav.add_folder('Episodes','tv_episodes',params={'tmdb_id':item['tmdb_id'],'season':item['season'],
+                                                               'progress_labels':'1'},**metadata)
         try:
             media='movie' if item['media_type']=='movie' else 'tv'
             saved=any(membership['id']==1 for membership in Library(addon).memberships(media,item['tmdb_id']))

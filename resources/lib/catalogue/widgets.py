@@ -10,17 +10,16 @@ def title_link(**identity):
     return {'mdm_home_title': 'plugin://plugin.video.mdm.flix/?' + urlencode(dict(identity, action='home_title'))}
 
 
-def show_continue(nav, addon):
-    from resources.lib.playback.progress import ProgressError, display_position
-    from resources.lib.playback.progress_ui import identity_params, label, play_entry, title_metadata
+def show_continue(nav, addon, core):
+    from resources.lib.playback.progress import ProgressError
+    from resources.lib.playback.progress_ui import continuation_label, continued, identity_params, play_entry, title_metadata
     from resources.lib.playback.viewing import Viewing
 
     if addon.getSetting('progress_enabled') != 'false':
         try:
-            for row in Viewing(addon).rows()[:ROW_LIMIT]:
+            for row in continued(Viewing(addon), addon, core, limit=ROW_LIMIT):
                 item = row['item']
-                text = label(item) + ' · ' + display_position(row['position'])
-                play_entry(nav, addon, text, item, 'resume', properties=title_link(**identity_params(item)),
+                play_entry(nav, addon, continuation_label(row), item, 'resume', properties=title_link(**identity_params(item)),
                            **title_metadata(addon, None, item, row))
         except ProgressError:
             pass
@@ -46,7 +45,7 @@ def show_home_list(nav, addon):
 def show(nav, addon, core, params):
     row = params.get('row')
     if row == 'continue':
-        return show_continue(nav, addon)
+        return show_continue(nav, addon, core)
     if row == 'my_list':
         return show_home_list(nav, addon)
 

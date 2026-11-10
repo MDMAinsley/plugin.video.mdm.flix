@@ -57,7 +57,7 @@ def setup(addon,core,params):
     except (EpisodeError,CatalogueError) as error:xbmcgui.Dialog().ok('Episode controls',str(error))
 
 
-def following(client,identifier,season,episode,today=None,watched=()):
+def following(client,identifier,season,episode,today=None,watched=(),*,include_metadata=False):
     """TMDB episode order, including season rollover; no unannounced specials."""
     today=today or date.today().isoformat()
     all_watched=object()
@@ -73,7 +73,8 @@ def following(client,identifier,season,episode,today=None,watched=()):
             released=row.get('air_date')
             if not isinstance(released,str) or not re.fullmatch(r'\d{4}-\d{2}-\d{2}',released) or released>today:return False
             if 'episode:{}:{}:{}'.format(identifier,season,at) not in watched:
-                return dict(media_type='episode',tmdb_id=identifier,season=season,episode=at)
+                item = dict(media_type='episode',tmdb_id=identifier,season=season,episode=at)
+                return (item, row) if include_metadata else item
         return all_watched
     result=candidates(client.season(identifier,season),season,episode)
     if result is not None and result is not all_watched:return result or None
