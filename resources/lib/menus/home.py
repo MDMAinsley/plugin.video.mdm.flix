@@ -13,6 +13,7 @@ def show(nav):
     nav.add_folder("Continue Watching", "continue_watching")
     nav.add_folder("My List", "library_view", params={"list_id": 1})
     nav.add_folder("My Library / Lists", "library_home")
+    nav.add_folder("MDBList", "mdblist_home")
     nav.add_folder("Tools / Settings", ACTION_TOOLS)
     nav.add_action("Kodi favourites", "kodi_favourites")
     nav.end()

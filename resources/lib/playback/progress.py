@@ -100,5 +100,24 @@ class Store:
             sql='SELECT * FROM progress'+(' WHERE watched=0 AND position>=30' if continuing else '')+' ORDER BY updated DESC,identity LIMIT '+('40' if continuing else '1000')
             return [record for row in db.execute(sql) if (record:=self.record(row)) is not None]
 
+    def import_missing(self, records):
+        added = 0
+        with self.db(True) as db:
+            remaining = MAX_RECORDS - db.execute('SELECT count(*) FROM progress').fetchone()[0]
+            for item, position, duration, updated in records:
+                item = clean(item)
+                identity = key(item)
+                if db.execute('SELECT 1 FROM progress WHERE identity=?',(identity,)).fetchone():
+                    continue
+                position, duration = seconds(position), seconds(duration)
+                if not 30 <= position < duration or type(updated) is not int or updated <= 0:
+                    raise ProgressError('Invalid imported playback position.')
+                if added >= remaining:
+                    raise ProgressError('This device has reached its viewing history limit.')
+                db.execute('INSERT INTO progress VALUES(?,?,?,?,?,?)',
+                           (identity,json.dumps(item,ensure_ascii=False),position,duration,0,updated))
+                added += 1
+        return added
+
     def remove(self,item):
         with self.db(True) as db:db.execute('DELETE FROM progress WHERE identity=?',(key(item),))

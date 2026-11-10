@@ -127,6 +127,15 @@ class Router:
             from resources.lib.library_ui import show
             show(nav, self.addon, self.core, self.params)
 
+        elif action in ('mdblist_home', 'mdblist_watchlist'):
+            from resources.lib.mdblist_browse import show
+            show(nav, self.addon, self.params)
+
+        elif action in ('mdblist_connect', 'mdblist_disconnect', 'mdblist_import_watchlist', 'mdblist_import_progress'):
+            from resources.lib.mdblist_browse import action as manage_mdblist
+            manage_mdblist(self.addon, action)
+            return
+
         elif action in ("library_manage", "library_create", "library_rename", "library_delete", "library_remove", "library_up", "library_down", "library_help"):
             from resources.lib.library_ui import action as library_action
             library_action(self.addon, self.core, self.params)

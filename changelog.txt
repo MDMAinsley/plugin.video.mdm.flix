@@ -1,3 +1,7 @@
+0.17.0
+- Connect to MDBList from a phone and browse the account watchlist.
+- Import watchlist titles into a chosen local list or add missing paused sessions to Continue Watching.
+
 0.16.9
 - Add title action pages for films, shows and episodes with prominent Play, Resume or Browse episodes.
 - Let the MDM home shortcut open any existing local list.

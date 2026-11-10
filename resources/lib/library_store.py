@@ -167,13 +167,30 @@ class Library:
     def add(self, row, identifier=1):
         with self.db(True) as db:
             identifier = self._list(db, identifier); self._put(db, row)
-            params = (identifier,row['media'],row['tmdb_id'])
-            if db.execute('SELECT 1 FROM members WHERE list_id=? AND media=? AND tmdb_id=?', params).fetchone():
-                return
-            if db.execute('SELECT count(*) FROM members').fetchone()[0] >= MAX_MEMBERS:
-                raise LibraryError('This device has reached its 2000 saved-list entries limit.')
-            position = db.execute('SELECT coalesce(max(position),0)+1 FROM members WHERE list_id=?', (identifier,)).fetchone()[0]
-            db.execute('INSERT INTO members VALUES(?,?,?,?)', params+(position,))
+            self._append(db, identifier, row['media'], row['tmdb_id'])
+
+    @staticmethod
+    def _append(db, identifier, media, tmdb_id):
+        params = (identifier,media,tmdb_id)
+        if db.execute('SELECT 1 FROM members WHERE list_id=? AND media=? AND tmdb_id=?', params).fetchone():
+            return False
+        if db.execute('SELECT count(*) FROM members').fetchone()[0] >= MAX_MEMBERS:
+            raise LibraryError('This device has reached its 2000 saved-list entries limit.')
+        position = db.execute('SELECT coalesce(max(position),0)+1 FROM members WHERE list_id=?', (identifier,)).fetchone()[0]
+        db.execute('INSERT INTO members VALUES(?,?,?,?)', params+(position,))
+        return True
+
+    def import_titles(self, identifier, rows):
+        """Append validated titles in a single transaction, preserving local metadata."""
+        added = 0
+        with self.db(True) as db:
+            identifier = self._list(db, identifier)
+            for row in rows:
+                media, tmdb_id = identity(row['media'], row['tmdb_id'])
+                if not db.execute('SELECT 1 FROM titles WHERE media=? AND tmdb_id=?',(media,tmdb_id)).fetchone():
+                    self._put(db, row)
+                added += self._append(db, identifier, media, tmdb_id)
+        return added
 
     def remove(self, identifier, media, tmdb_id):
         media,tmdb_id = identity(media,tmdb_id)
