@@ -1,7 +1,11 @@
 """Visible viewing actions, shared by Basic and Artwork home navigation."""
+from contextlib import nullcontext
+import time
 import xbmc
 import xbmcgui
-from resources.lib.playback.progress import Store,ProgressError,clean
+from resources.lib.playback.progress import ProgressError,clean
+from resources.lib.playback.viewing import Viewing
+from resources.lib.mdblist_account import State, MDBError
 from resources.lib.library_store import Library,LibraryError,identity
 from resources.lib.catalogue.tmdb import TMDB,CatalogueError
 
@@ -53,7 +57,7 @@ def label(item):
 
 def show(nav,addon,core,params):
     try:
-        store=Store(addon)
+        store=Viewing(addon)
         if params.get('action') in ('continue_watching','viewing_history'):
             continuing=params['action']=='continue_watching'
             rows=store.rows(continuing)
@@ -98,15 +102,29 @@ def action(addon,core,params):
         operation=params.get('action')
         if operation in ('progress_mark','progress_clear'):
             item=requested(params)
-            store=Store(addon);row=store.get(item)
+            viewing=Viewing(addon);store=viewing.local;row=viewing.get(item)
             if not row:raise ProgressError('No viewing record remains for this title.')
             item=row['item']
+            account=viewing.account or {}
+            scope=account.get('sync_id')
+            if scope and not account.get('history_sync'):
+                raise ProgressError('Open MDBList and choose Enable watched sync to change viewing history across devices.')
+            guard=State(addon).guard(account) if scope else nullcontext()
         if operation=='progress_mark':
             if params.get('watched') not in ('true','false'):raise ProgressError('Invalid watched action.')
-            store.save(item,0,row['duration'],params['watched']=='true',cancel_sync=True)
+            watched=params['watched']=='true'
+            if scope and not watched and not xbmcgui.Dialog().yesno('Mark unwatched on MDBList?',
+                    'This clears the watched flag for this title across linked devices.'):
+                return
+            edit=(scope,'watched' if watched else 'unwatched',time.time(),None) if scope else None
+            with guard:
+                store.save(item,0,row['duration'],watched,cancel_sync=True,action=edit)
         elif operation=='progress_clear':
-            if not xbmcgui.Dialog().yesno('Clear viewing record?', 'Remove this title’s saved position and watched state? Your lists and ratings are kept.'):return
-            store.remove(item)
+            message=('Clear this title’s resume position and watched flag on MDBList and this device?' if scope else
+                     'Remove this title’s saved position and watched state? Your lists and ratings are kept.')
+            if not xbmcgui.Dialog().yesno('Clear viewing record?',message):return
+            with guard:
+                store.remove(item,action=(scope,'clear',time.time(),None) if scope else None)
         elif operation in ('progress_save','progress_unsave','progress_lists'):
             from resources.lib.library_ui import title_row,action as library_action
             item=title_identity(params)
@@ -116,5 +134,8 @@ def action(addon,core,params):
             if operation=='progress_unsave':library.remove(1,media,item['tmdb_id'])
             else:library.add(title_row(library,addon,core,media,item['tmdb_id']))
         else:raise ProgressError('Unknown viewing action.')
-        xbmcgui.Dialog().notification('MDM Flix','Saved on this device.',xbmcgui.NOTIFICATION_INFO,2000);xbmc.executebuiltin('Container.Refresh')
+        queued=operation in ('progress_mark','progress_clear') and scope
+        message='Saved locally and queued for MDBList.' if queued else 'Saved on this device.'
+        xbmcgui.Dialog().notification('MDM Flix',message,xbmcgui.NOTIFICATION_INFO,2000);xbmc.executebuiltin('Container.Refresh')
     except (ProgressError,LibraryError,CatalogueError) as error:xbmcgui.Dialog().ok('Viewing progress',str(error))
+    except MDBError:xbmcgui.Dialog().ok('Viewing progress','The MDBList connection changed. Open this title and try again.')

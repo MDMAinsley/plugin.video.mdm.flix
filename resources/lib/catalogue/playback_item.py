@@ -35,7 +35,8 @@ def load(addon, core, params):
         episode_data = client.request('tv/{}/season/{}/episode/{}'.format(tmdb_id,season,episode), {'language':'en-US','append_to_response':'external_ids'},ttl=3600)
         episode_title=episode_data.get('name')
         episode_title=episode_title if isinstance(episode_title,str) and episode_title else 'Episode {}'.format(episode)
-        item.update(tvshowtitle=title, title=episode_title, season=season,episode=episode)
+        item.update(tvshowtitle=title, title=episode_title, season=season,episode=episode,
+                    episode_tmdb_id=episode_data.get('id'))
         episode_external=episode_data.get('external_ids') or {}
         show_external=external if isinstance(external,dict) else {}
         from resources.lib.playback.timing_rules import positive

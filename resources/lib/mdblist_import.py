@@ -70,7 +70,10 @@ def watchlist_titles(client, cancelled):
 
 
 def paused_records(client):
-    data = client.playback()
+    return parse_paused(client.playback())
+
+
+def parse_paused(data):
     if not isinstance(data, list):
         raise MDBError('invalid_response')
     if len(data) > MAX_RECORDS:
@@ -100,6 +103,7 @@ def paused_records(client):
             show_title = title(show.get('title'))
             item = dict(media_type=media, tmdb_id=object_field(show, 'ids').get('tmdb'),
                         season=episode.get('season'), episode=episode.get('number'),
+                        episode_tmdb_id=object_field(episode,'ids').get('tmdb'),
                         title=title(episode.get('title')) or show_title, tvshowtitle=show_title)
         else:
             continue

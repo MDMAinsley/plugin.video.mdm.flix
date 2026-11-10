@@ -6,14 +6,18 @@ import time
 
 from .mdblist_account import State
 from .mdblist_client import CLIENT_ID, Client, DeviceFlow, MDBError, playback_percentage
-from .mdblist_import import object_field
+from .mdblist_import import object_field, parse_paused
+from .mdblist_history import item_state, recent_watched, watched_body
 from .playback.progress import MAX_RECORDS, ProgressError, Store, key
 from .playback.resume_outbox import MAX_RESUME_PERCENT, Outbox
+from .playback.viewing_outbox import Actions
 
 APP_NAME = 'MDM Flix'
 VERIFY_DELAY = 10
 MAX_WRITES = 3
 MAX_FAILURES = 10
+REFRESH_INTERVAL = 180
+HISTORY_INTERVAL = 1800
 
 
 def target(item):
@@ -86,10 +90,16 @@ class Worker:
     def __init__(self, addon, boot, stopping=lambda: False, transport=None):
         self.addon = addon
         self.state = State(addon)
-        self.outbox = Outbox(Store(addon))
+        store = Store(addon)
+        self.outbox = Outbox(store)
+        self.actions = Actions(store)
         self.boot = boot
         self.stopping = stopping
         self.client_options = {'transport': transport} if transport else {}
+        self.refresh_at = 0
+        self.refresh_account = None
+        self.history_at = 0
+        self.last_request = 0
 
     def tick(self):
         if self.stopping() or self.addon.getSetting('progress_enabled') == 'false':
@@ -98,25 +108,135 @@ class Worker:
         now = time.time()
         if not current or not current.get('sync_id') or current.get('sync_retry', 0) > now:
             return
-        row = self.outbox.pending(current['sync_id'], now, self.boot)
-        if not row:
+        edit = self.actions.pending(current['sync_id'],self.boot) if current.get('history_sync') else None
+        row = None if edit else self.outbox.pending(current['sync_id'], now, self.boot)
+        if self.refresh_account != current['sync_id']:
+            self.refresh_account = current['sync_id']
+            self.refresh_at = 0
+            self.history_at = 0
+            self.last_request = 0
+        requested = current.get('progress_refresh',0)
+        if requested > self.last_request:
+            self.last_request = requested
+            self.refresh_at = min(self.refresh_at,now)
+            self.history_at = min(self.history_at,now)
+        if not (row or edit) and now < self.refresh_at and (not current.get('history_sync') or now < self.history_at):
             return
         try:
             if current['expires'] <= now + 30:
                 flow = DeviceFlow(CLIENT_ID, **self.client_options)
                 current = self.state.refresh(current, flow.refresh(current['refresh_token']))
             client = Client(token=current['access_token'], **self.client_options)
-            self.reconcile(current, row, client)
+            if edit:
+                self.reconcile_edit(current,edit,client)
+            elif row:
+                self.reconcile(current, row, client)
+            elif now >= self.refresh_at:
+                self.read_playback(current, client)
+            else:
+                self.history_at = now + HISTORY_INTERVAL
+                watched, complete = recent_watched(client)
+                if not complete:
+                    seen = {key(item) for item,_ in watched}
+                    watched.extend(row for row in self.state.watched_snapshot(current['sync_id']) if key(row[0]) not in seen)
+                self.state.save_watched(current['sync_id'],sorted(watched,key=lambda row:row[1],reverse=True)[:1500],
+                                        complete=complete)
         except MDBError as error:
-            if error.code != 'connection_changed':
+            if edit and error.code != 'connection_changed':
+                self.retry_edit(current,edit,error)
+            elif row and error.code != 'connection_changed':
                 self.retry(current, row, error)
+            else:
+                self.refresh_at = now + max(REFRESH_INTERVAL,error.retry_after)
+                if error.code == 'rate_limited':
+                    self.state.sync_status(current,'MDBList asked Flix to wait before syncing.',self.refresh_at)
+
+    def read_playback(self, current, client):
+        values = client.playback()
+        self.refresh_at = time.time() + REFRESH_INTERVAL
+        try:
+            records = parse_paused(values)
+            present = {remote_key(row) if isinstance(row,dict) else None for row in values}
+            # A malformed row may be a previous title with incomplete metadata.
+            self.state.save_playback(current['sync_id'],records,present if None not in present else None)
+        except MDBError:
+            # Keep the previous cache if the new response cannot be stored.
+            pass
+        return values
 
     def finish(self, current, row, status):
         if self.outbox.finish(row):
             self.state.sync_status(current, status)
 
+    def edit_identifier(self, item):
+        if item['media_type'] == 'movie':
+            return item['tmdb_id']
+        if item.get('episode_tmdb_id'):
+            return item['episode_tmdb_id']
+        # Existing viewing rows predate the dedicated episode ID.
+        from .bootstrap import _load_core
+        from .catalogue.tmdb import CatalogueError, TMDB
+        try:
+            data = TMDB(self.addon,_load_core()).request('tv/{}/season/{}/episode/{}'.format(
+                item['tmdb_id'],item['season'],item['episode']),ttl=3600)
+            return data['id']
+        except CatalogueError:
+            raise MDBError('episode_identity_unavailable') from None
+
+    def finish_edit(self, current, row, message):
+        if self.actions.finish(row):
+            self.state.sync_status(current,message)
+
+    def reconcile_edit(self, current, row, client):
+        item = json.loads(row['item'])
+        identifier = self.edit_identifier(item)
+        changed = item_state(client,item,identifier)
+        pause = remote_position(self.read_playback(current,client),row['identity'])
+        self.state.update_watched(current['sync_id'],item,changed)
+        recorded = int(row['recorded'])
+        if changed > recorded or (pause and pause['updated_at_ts'] >= recorded):
+            self.finish_edit(current,row,'Kept newer viewing activity on MDBList.')
+            return
+        kind = row['kind']
+        if kind == 'watched' and changed < recorded:
+            path, body = '/sync/watched', watched_body(item,identifier,recorded)
+        elif kind in ('unwatched','clear') and changed:
+            path, body = '/sync/watched/remove', watched_body(item,identifier)
+        elif kind in ('watched','clear') and pause:
+            path, body = '/scrobble/clear', target(item)
+        else:
+            self.finish_edit(current,row,'Viewing change verified on MDBList.')
+            return
+        if row['writes'] >= 4:
+            self.finish_edit(current,row,'Could not verify the viewing change on MDBList.')
+            return
+        account = self.state.connection()
+        if self.stopping() or not account or account['generation'] != current['generation']:
+            return
+        if not self.actions.begin(row):
+            return
+        result = client.call('POST',path,body)
+        unmatched = result.get('not_found') if isinstance(result,dict) else None
+        if isinstance(unmatched,dict):
+            unmatched = any(unmatched.values())
+        if not isinstance(result,dict) or result.get('errors') or unmatched:
+            raise MDBError('request_rejected')
+        if self.actions.defer(row,VERIFY_DELAY):
+            self.state.sync_status(current,'Uploaded viewing change. Checking MDBList shortly.')
+
+    def retry_edit(self, current, row, error):
+        failures = row['failures'] + 1
+        if failures >= MAX_FAILURES or error.code in ('request_rejected','title_not_found'):
+            self.finish_edit(current,row,'MDBList could not apply this viewing change. The local change is saved.')
+            return
+        delay = max(15,error.retry_after) if error.code == 'rate_limited' else min(3600,15*2**(failures-1))
+        if error.code in ('invalid_grant','unauthorised','invalid_client'):
+            delay = 86400
+        if self.actions.defer(row,delay,failures):
+            self.state.sync_status(current,'MDBList viewing change is waiting for a retry.',time.time()+delay)
+
     def reconcile(self, current, row, client):
-        remote = remote_position(client.playback(), row['identity'])
+        remote = remote_position(self.read_playback(current,client), row['identity'])
         duration = readback_duration(remote, row['duration'])
         if abs(duration - row['duration']) > max(60, row['duration'] * .05):
             self.finish(current, row, 'Kept the local position. MDBList has a different runtime for this title.')

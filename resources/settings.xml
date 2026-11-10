@@ -7,7 +7,8 @@
     <setting id="last_autoplay_summary" type="text" label="Legacy Autoplay summary (unused)" default="" visible="false" />
   </category>
   <category label="Viewing progress">
-    <setting id="progress_enabled" type="bool" label="Keep Continue Watching and watched status on this device" default="true" />
+    <setting id="progress_enabled" type="bool" label="Save viewing progress" default="true" />
+    <setting type="action" label="Viewing progress source" action="RunPlugin(plugin://plugin.video.mdm.flix/?action=mdblist_progress_source)" />
   </category>
   <category label="Episode controls">
     <setting id="episode_stream_matching" type="bool" label="Automatically compare episode streams with intro/outro timings" default="true" />

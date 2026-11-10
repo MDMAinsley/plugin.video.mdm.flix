@@ -1,3 +1,8 @@
+0.17.3
+- Choose Local only or MDBList as the viewing progress source.
+- Pull paused positions and watched history in the background, and use the selected history for Next Episode.
+- Queue opted-in watched, unwatched and clear changes with MDBList readback and offline retries.
+
 0.17.2
 - Match the live MDBList playback API's percentage precision and readback format.
 - Distinguish rejected progress requests from temporary service errors.

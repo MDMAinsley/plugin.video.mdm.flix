@@ -32,9 +32,9 @@ def safe_label(value, default):
     return ''.join(c for c in value[:200] if c.isprintable()).replace('[', '［').replace(']', '］').strip() or default
 
 
-def connect(state, previous=None):
+def connect(state, previous=None, *, sync=False):
     flow = DeviceFlow(CLIENT_ID)
-    session = flow.begin('write') if previous else flow.begin()
+    session = flow.begin('write') if previous or sync else flow.begin()
     monitor = xbmc.Monitor()
     deadline = time.monotonic()+session['expires_in']
 
@@ -67,7 +67,7 @@ def connect(state, previous=None):
     if not result or monitor.abortRequested():
         return False
     account, tokens = result
-    saved = state.enable_sync(previous, account, tokens) if previous else state.connect(account, tokens)
+    saved = state.enable_sync(previous, account, tokens) if previous else state.connect(account, tokens,sync=sync)
     if not saved:
         raise MDBError('connection_changed')
     return True
@@ -78,6 +78,15 @@ def action(addon, action_name):
     try:
         state = State(addon)
         current = state.connection()
+        if action_name == 'mdblist_progress_source':
+            active = bool(current and current.get('sync_id'))
+            choice = dialog.select('Viewing progress source', ['Local only', 'MDBList'], preselect=int(active))
+            if choice == 0 and active:
+                action_name = 'mdblist_disable_sync'
+            elif choice == 1 and not active:
+                action_name = 'mdblist_enable_sync'
+            else:
+                return
         if action_name == 'mdblist_connect' and not current:
             if connect(state):
                 xbmc.executebuiltin('Container.Refresh')
@@ -85,20 +94,30 @@ def action(addon, action_name):
             if dialog.yesno(TITLE, 'Disconnect MDBList on this device?', 'Cancel', 'Disconnect'):
                 if state.disconnect(current):
                     xbmc.executebuiltin('Container.Refresh')
-        elif action_name == 'mdblist_enable_sync' and current and not current.get('sync_id'):
-            message = ('Send future stop positions from this device to MDBList? '
+        elif action_name == 'mdblist_enable_sync' and not (current and current.get('sync_id')):
+            message = ('Sync future stop positions and watched changes with MDBList? '
                        'Approve playback access on your phone. Existing viewing history stays on this device.')
-            if dialog.yesno(TITLE, message, 'Cancel', 'Continue') and connect(state, current):
+            if dialog.yesno(TITLE, message, 'Cancel', 'Continue') and connect(state, current,sync=True):
                 dialog.ok(TITLE, 'Progress sync is on. Flix will start syncing from your next playback.')
                 xbmc.executebuiltin('Container.Refresh')
         elif action_name == 'mdblist_disable_sync' and current and current.get('sync_id'):
             if state.disable_sync(current):
                 xbmc.executebuiltin('Container.Refresh')
+        elif action_name == 'mdblist_enable_history' and current and current.get('sync_id') and not current.get('history_sync'):
+            if dialog.yesno(TITLE,'Sync future watched and clear changes with MDBList? Existing local history stays on this device.',
+                            'Cancel','Enable') and state.enable_history(current):
+                xbmc.executebuiltin('Container.Refresh')
+        elif action_name == 'mdblist_refresh_progress' and current and current.get('sync_id'):
+            if state.request_progress_refresh(current):
+                dialog.ok(TITLE,'Refresh requested. Open Continue Watching again in a moment.')
         elif action_name == 'mdblist_sync_status' and current and current.get('sync_id'):
             from .playback.resume_outbox import Outbox
-            count = Outbox(Store(addon)).count(current['sync_id'])
+            from .playback.viewing_outbox import Actions
+            store = Store(addon)
+            count = Outbox(store).count(current['sync_id'])
+            changes = len(Actions(store).kinds(current['sync_id']))
             status = current.get('sync_status') or 'Waiting for the next eligible stop position.'
-            dialog.ok(TITLE, 'Pending positions: {}\n{}\nPositions near the end of a title stay on this device.'.format(count, status))
+            dialog.ok(TITLE, 'Pending positions: {}\nPending watched or clear changes: {}\n{}'.format(count,changes,status))
         elif action_name in ('mdblist_import_watchlist', 'mdblist_import_progress'):
             if not current:
                 dialog.ok(TITLE, 'Connect MDBList before importing.')
@@ -168,10 +187,15 @@ def show(nav, addon, params):
         if params.get('action') == 'mdblist_home' or not current:
             if current:
                 nav.add_folder('Watchlist · '+safe_label(current['name'], TITLE), 'mdblist_watchlist')
+                nav.add_action('Viewing progress source · '+('MDBList' if current.get('sync_id') else 'Local only'),
+                               'mdblist_progress_source')
                 nav.add_action('Import watchlist into a local list', 'mdblist_import_watchlist')
                 nav.add_action('Import paused viewing into Continue Watching', 'mdblist_import_progress')
                 if current.get('sync_id'):
                     nav.add_action('Progress sync status', 'mdblist_sync_status')
+                    nav.add_action('Refresh viewing progress','mdblist_refresh_progress')
+                    if not current.get('history_sync'):
+                        nav.add_action('Enable watched sync','mdblist_enable_history')
                     nav.add_action('Turn off progress sync', 'mdblist_disable_sync')
                 else:
                     nav.add_action('Enable progress sync', 'mdblist_enable_sync')

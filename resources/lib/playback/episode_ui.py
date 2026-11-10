@@ -57,9 +57,10 @@ def setup(addon,core,params):
     except (EpisodeError,CatalogueError) as error:xbmcgui.Dialog().ok('Episode controls',str(error))
 
 
-def following(client,identifier,season,episode,today=None):
+def following(client,identifier,season,episode,today=None,watched=()):
     """TMDB episode order, including season rollover; no unannounced specials."""
     today=today or date.today().isoformat()
+    all_watched=object()
     def candidates(data,season,after):
         result=[]
         for row in data['episodes']:
@@ -68,12 +69,14 @@ def following(client,identifier,season,episode,today=None):
             except CatalogueError:continue
             if at>after:result.append((at,row))
         if not result:return None
-        at,row=min(result,key=lambda value:value[0])
-        released=row.get('air_date')
-        if not isinstance(released,str) or not re.fullmatch(r'\d{4}-\d{2}-\d{2}',released) or released>today:return False
-        return dict(media_type='episode',tmdb_id=identifier,season=season,episode=at)
+        for at,row in sorted(result,key=lambda value:value[0]):
+            released=row.get('air_date')
+            if not isinstance(released,str) or not re.fullmatch(r'\d{4}-\d{2}-\d{2}',released) or released>today:return False
+            if 'episode:{}:{}:{}'.format(identifier,season,at) not in watched:
+                return dict(media_type='episode',tmdb_id=identifier,season=season,episode=at)
+        return all_watched
     result=candidates(client.season(identifier,season),season,episode)
-    if result is not None:return result or None
+    if result is not None and result is not all_watched:return result or None
     if season==0:return None
     details=client.details('tv',identifier)
     rows=details.get('seasons')
@@ -83,10 +86,11 @@ def following(client,identifier,season,episode,today=None):
         try:at=number(row.get('season_number'),1)
         except (CatalogueError,AttributeError):continue
         if at>season:later.append(at)
-    # Only the immediate next listed season: never skip an unaired season.
-    if not later:return None
-    next_season=min(later)
-    return candidates(client.season(identifier,next_season),next_season,0) or None
+    # Only continue past a season if its listed episodes are all known watched.
+    for next_season in sorted(set(later))[:5]:
+        result=candidates(client.season(identifier,next_season),next_season,0)
+        if result is not all_watched:return result or None
+    return None
 
 
 def play_next(addon,core,params):
@@ -94,6 +98,7 @@ def play_next(addon,core,params):
     from resources.lib.playback.episode_controls import current_token
     from resources.lib.playback.tracking import PROPERTY
     from resources.lib.playback.progress import clean,ProgressError
+    from resources.lib.playback.viewing import Viewing
     try:
         token=params.get('token','')
         if not re.fullmatch('[0-9a-f]{32}',token):raise EpisodeError('This next-episode prompt has expired.')
@@ -105,7 +110,11 @@ def play_next(addon,core,params):
             return item['media_type']=='episode' and all(str(item[k])==str(params.get(k)) for k in ('tmdb_id','season','episode'))
         if not owned():return
         identifier=number(params.get('tmdb_id'),1);season=number(params.get('season'));episode=number(params.get('episode'),1)
-        next_item=following(TMDB(addon,core),identifier,season,episode)
+        try:
+            watched=Viewing(addon).watched_keys() if addon.getSetting('progress_enabled')!='false' else ()
+        except ProgressError:
+            watched=()
+        next_item=following(TMDB(addon,core),identifier,season,episode,watched=watched)
         if not owned():return
         if not next_item:
             xbmcgui.Dialog().notification('MDM Flix','No next aired episode is available yet.',xbmcgui.NOTIFICATION_INFO,4000);return

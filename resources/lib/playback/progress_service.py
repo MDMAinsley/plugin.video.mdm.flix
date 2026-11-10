@@ -14,6 +14,7 @@ class Observer(xbmc.Player):
         super().__init__();self.addon=addon;self.active=None;self.position=0;self.duration=0;self.saved=0;self.last_written=None;self.warned=False;self.observed=False;self.seek_pending=0;self.seek_deadline=0;self.lock=threading.RLock()
         self.sampled=0
         self.sync_id=None
+        self.history_sync=False
         self.boot_id=uuid.uuid4().hex
 
     def current_token(self):
@@ -52,9 +53,11 @@ class Observer(xbmc.Player):
         watched=not failed and self.duration>=60 and self.position>=self.duration*.9
         checkpoint=(self.position,self.duration,watched)
         sync=(self.sync_id,self.sampled,None if final else self.boot_id) if self.sync_id and not failed else None
+        action=(self.sync_id,'watched',self.sampled,None) if watched and final and self.history_sync else None
         if checkpoint==self.last_written and not (self.sync_id and (final or failed)):return
         try:
-            Store(self.addon).save(self.active['item'],*checkpoint,sync=sync,cancel_sync=self.last_written is None or failed)
+            Store(self.addon).save(self.active['item'],*checkpoint,sync=sync,
+                                  cancel_sync=self.last_written is None or failed,action=action)
             self.last_written=checkpoint
         except ProgressError as error:self.warning(str(error))
         self.saved=time.monotonic()
@@ -74,9 +77,11 @@ class Observer(xbmc.Player):
                 self.active=candidate;self.position=0;self.duration=0;self.last_written=None;self.warned=False;self.observed=False;self.seek_pending=0
                 from resources.lib.mdblist_account import State, MDBError
                 try:
-                    self.sync_id=(State(self.addon).connection() or {}).get('sync_id')
+                    account=State(self.addon).connection() or {}
                 except MDBError:
-                    self.sync_id=None
+                    account={}
+                self.sync_id=account.get('sync_id')
+                self.history_sync=bool(self.sync_id and account.get('history_sync'))
                 resume=candidate['resume']
                 if resume:
                     duration=seconds(self.getTotalTime())

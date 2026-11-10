@@ -44,6 +44,12 @@ class Outbox:
                 return 0
             return db.execute('SELECT count(*) FROM resume_outbox WHERE sync_id=?', (sync_id,)).fetchone()[0]
 
+    def identities(self, sync_id):
+        with self.store.db() as db:
+            if not exists(db):
+                return set()
+            return {row[0] for row in db.execute('SELECT identity FROM resume_outbox WHERE sync_id=?',(sync_id,))}
+
     def begin_write(self, row):
         with self.store.db(True) as db:
             return db.execute('UPDATE resume_outbox SET writes=writes+1 WHERE ticket=? AND writes=?',

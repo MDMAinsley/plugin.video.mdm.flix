@@ -24,6 +24,10 @@ def clean(item):
     result={'media_type':item['media_type'],'tmdb_id':integer(item.get('tmdb_id'),1)}
     if result['media_type']=='episode':
         result.update(season=integer(item.get('season')),episode=integer(item.get('episode'),1))
+        try:
+            result['episode_tmdb_id']=integer(item.get('episode_tmdb_id'),1)
+        except ProgressError:
+            pass
     for key,limit in (('title',200),('tvshowtitle',200),('plot',2000)):
         value=item.get(key);result[key]=value[:limit] if isinstance(value,str) else ''
     if not result['title']:raise ProgressError('This title has no name for Continue Watching.')
@@ -85,7 +89,7 @@ class Store:
         identity=key(item)
         with self.db() as db:return self.record(db.execute('SELECT * FROM progress WHERE identity=?',(identity,)).fetchone())
 
-    def save(self,item,position,duration,watched=False,*,sync=None,cancel_sync=False):
+    def save(self,item,position,duration,watched=False,*,sync=None,cancel_sync=False,action=None):
         item=clean(item);identity=key(item);position=seconds(position);duration=seconds(duration)
         if type(watched) is not bool:raise ProgressError('Invalid watched state.')
         if duration and position>duration:position=duration
@@ -98,6 +102,9 @@ class Store:
             if sync or cancel_sync:
                 from .resume_outbox import replace
                 replace(db,identity,sync,position,duration,watched)
+            if action:
+                from .viewing_outbox import enqueue
+                enqueue(db,identity,item,action)
 
     def rows(self,continuing=True):
         with self.db() as db:
@@ -123,5 +130,10 @@ class Store:
                 added += 1
         return added
 
-    def remove(self,item):
-        with self.db(True) as db:db.execute('DELETE FROM progress WHERE identity=?',(key(item),))
+    def remove(self,item,*,action=None):
+        identity=key(item)
+        with self.db(True) as db:
+            db.execute('DELETE FROM progress WHERE identity=?',(identity,))
+            if action:
+                from .viewing_outbox import enqueue
+                enqueue(db,identity,clean(item),action)

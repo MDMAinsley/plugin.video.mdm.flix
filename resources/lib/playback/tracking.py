@@ -6,7 +6,8 @@ import uuid
 from contextlib import contextmanager
 from contextvars import ContextVar
 import xbmcgui
-from resources.lib.playback.progress import Store,clean,ProgressError,seconds
+from resources.lib.playback.progress import clean,ProgressError,seconds
+from resources.lib.playback.viewing import Viewing
 from resources.lib.playback.errors import Cancelled
 
 PROPERTY='mdm.flix.progress'
@@ -29,7 +30,7 @@ def stamp(listitem):
         return
     resume=0
     try:
-        previous=None if addon.getSetting('progress_enabled')=='false' else Store(addon).get(item)
+        previous=None if addon.getSetting('progress_enabled')=='false' else Viewing(addon).get(item)
     except ProgressError as error:
         xbmcgui.Dialog().notification('MDM Flix',str(error));previous=None
     if previous and not previous['watched'] and previous['position']>=30:
