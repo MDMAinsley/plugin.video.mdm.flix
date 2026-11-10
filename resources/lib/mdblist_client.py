@@ -6,6 +6,7 @@ headers, response bodies or exceptions supplied by the network library.
 """
 import json
 import math
+import re
 from urllib import error, parse, request
 
 BASE = 'https://api.mdblist.com'
@@ -31,6 +32,14 @@ def bounded_number(value, default=0, maximum=86400):
         return min(maximum, max(0, result)) if math.isfinite(result) else default
     except (ValueError, TypeError):
         return default
+
+
+def playback_percentage(value):
+    if isinstance(value, str) and re.fullmatch(r'[0-9]{1,3}(?:\.[0-9]{1,8})?', value):
+        value = float(value)
+    if type(value) in (int, float) and 0 <= value <= 100:
+        return value
+    return None
 
 
 def send(method, path, body=None, headers=None, query=None, form=False):

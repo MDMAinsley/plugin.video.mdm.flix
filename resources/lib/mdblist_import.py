@@ -1,9 +1,8 @@
 """Validate MDBList rows before handing them to the local stores."""
-import math
 import time
 
 from .library_store import LibraryError, MAX_TITLES, identity
-from .mdblist_client import MDBError
+from .mdblist_client import MDBError, playback_percentage
 from .playback.progress import MAX_RECORDS, ProgressError, clean, key
 
 
@@ -81,10 +80,10 @@ def paused_records(client):
     for row in data:
         if not isinstance(row, dict):
             continue
-        runtime, percentage, updated = (row.get(field) for field in ('runtime', 'progress', 'updated_at_ts'))
+        runtime, updated = row.get('runtime'), row.get('updated_at_ts')
+        percentage = playback_percentage(row.get('progress'))
         if (type(runtime) is not int or not 0 < runtime <= 1440
-                or type(percentage) not in (int, float) or not 0 < percentage < 80
-                or not math.isfinite(percentage)
+                or percentage is None or not 0 < percentage < 80
                 or type(updated) is not int or not 0 < updated <= newest_allowed):
             continue
         duration = runtime * 60

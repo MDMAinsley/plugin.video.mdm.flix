@@ -5,7 +5,7 @@ from threading import Thread
 import time
 
 from .mdblist_account import State
-from .mdblist_client import CLIENT_ID, Client, DeviceFlow, MDBError
+from .mdblist_client import CLIENT_ID, Client, DeviceFlow, MDBError, playback_percentage
 from .mdblist_import import object_field
 from .playback.progress import MAX_RECORDS, ProgressError, Store, key
 from .playback.resume_outbox import MAX_RESUME_PERCENT, Outbox
@@ -41,12 +41,11 @@ def remote_position(values, identity):
     for row in values:
         if not isinstance(row, dict) or remote_key(row) != identity:
             continue
-        percentage, updated = row.get('progress'), row.get('updated_at_ts')
-        if (type(percentage) not in (int, float) or not 0 <= percentage <= 100
-                or type(updated) is not int or updated <= 0):
+        percentage, updated = playback_percentage(row.get('progress')), row.get('updated_at_ts')
+        if percentage is None or type(updated) is not int or updated <= 0:
             raise MDBError('invalid_response')
         if not latest or updated >= latest['updated_at_ts']:
-            latest = row
+            latest = dict(row, progress=percentage)
     return latest
 
 
@@ -57,16 +56,30 @@ def readback_duration(remote, local):
     return minutes * 60
 
 
-def sent_marker(response):
-    if not isinstance(response, dict) or type(response.get('id')) is not int or response['id'] <= 0:
+def sent_marker(response, requested, started):
+    if not isinstance(response, dict) or playback_percentage(response.get('progress')) != requested:
         raise MDBError('invalid_response')
+    identifier = response.get('id')
+    if type(identifier) is not int or identifier <= 0:
+        return None, started
     try:
         paused = datetime.fromisoformat(response['paused_at'].replace('Z', '+00:00'))
-        if paused.tzinfo is None:
-            raise ValueError
-        return response['id'], int(paused.timestamp())
+        if paused.tzinfo is not None:
+            return identifier, int(paused.timestamp())
     except (AttributeError, KeyError, ValueError, OverflowError, OSError):
-        raise MDBError('invalid_response') from None
+        pass
+    return None, started
+
+
+def matches_upload(row, remote):
+    sent_time = row['sent_time']
+    if sent_time is None or remote.get('app_name') != APP_NAME:
+        return False
+    if row['sent_id'] is not None:
+        return row['sent_id'] == remote.get('id') and sent_time == remote['updated_at_ts']
+    # The live pause response can omit the session ID and timestamp. Use its
+    # echoed progress and the request window to identify the matching readback.
+    return row.get('sent_progress') == remote['progress'] and sent_time - 2 <= remote['updated_at_ts'] <= sent_time + 12
 
 
 class Worker:
@@ -119,12 +132,10 @@ class Worker:
                           else 'Playback percentage verified. MDBList did not report a usable runtime.')
                 self.finish(current, row, status)
                 return
-            own = (row['sent_id'] == remote.get('id') and row['sent_time'] == remote['updated_at_ts']
-                   and remote.get('app_name') == APP_NAME)
-            if remote['updated_at_ts'] >= int(row['sampled']) and not own:
+            if remote['updated_at_ts'] >= int(row['sampled']) and not matches_upload(row, remote):
                 self.finish(current, row, 'Kept the newer or simultaneous MDBList position.')
                 return
-        elif row['sent_id'] is not None:
+        elif row['sent_time'] is not None:
             # An acknowledged position can be removed on another device. Recheck
             # briefly without recreating a possibly deleted remote session.
             if row['failures'] < 2:
@@ -144,13 +155,19 @@ class Worker:
         if not self.outbox.begin_write(row):
             return
         item = json.loads(row['item'])
-        result = client.call('POST', '/scrobble/pause', dict(target(item), progress=desired, app_name=APP_NAME))
-        sent_id, sent_time = sent_marker(result)
-        if self.outbox.defer(row, time.time() + VERIFY_DELAY, sent_id=sent_id, sent_time=sent_time):
+        requested = round(desired, 2)
+        started = int(time.time())
+        # MDBList validates a decimal percentage with at most five digits.
+        result = client.call('POST', '/scrobble/pause', dict(target(item), progress=requested, app_name=APP_NAME))
+        sent_id, sent_time = sent_marker(result, requested, started)
+        if self.outbox.defer(row, time.time() + VERIFY_DELAY, sent_id=sent_id, sent_time=sent_time, sent_progress=requested):
             self.state.sync_status(current, 'Uploaded. Checking the position shortly.')
 
     def retry(self, current, row, error):
         failures = row['failures'] + 1
+        if error.code == 'request_rejected':
+            self.finish(current, row, 'MDBList rejected the progress request. The local position is saved.')
+            return
         if error.code in ('invalid_grant', 'unauthorised', 'invalid_client'):
             self.state.sync_status(current, 'MDBList needs a new sign-in to continue uploading.', time.time() + 86400)
             return

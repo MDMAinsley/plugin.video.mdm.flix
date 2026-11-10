@@ -20,7 +20,7 @@ def replace(db, identity, sync, position, duration, watched):
                'identity TEXT PRIMARY KEY REFERENCES progress(identity) ON DELETE CASCADE, '
                'ticket TEXT NOT NULL, sync_id TEXT NOT NULL, position REAL NOT NULL, duration REAL NOT NULL, '
                'sampled REAL NOT NULL, due REAL NOT NULL, boot TEXT, failures INTEGER NOT NULL DEFAULT 0, '
-               'writes INTEGER NOT NULL DEFAULT 0, sent_id INTEGER, sent_time INTEGER)')
+               'writes INTEGER NOT NULL DEFAULT 0, sent_id INTEGER, sent_time INTEGER, sent_progress REAL)')
     db.execute('INSERT INTO resume_outbox(identity,ticket,sync_id,position,duration,sampled,due,boot) '
                'VALUES(?,?,?,?,?,?,?,?)', (identity, uuid.uuid4().hex, sync_id, position, duration, sampled, time.time(), boot))
 
@@ -49,8 +49,14 @@ class Outbox:
             return db.execute('UPDATE resume_outbox SET writes=writes+1 WHERE ticket=? AND writes=?',
                               (row['ticket'], row['writes'])).rowcount == 1
 
-    def defer(self, row, due, failures=0, sent_id=None, sent_time=None):
+    def defer(self, row, due, failures=0, sent_id=None, sent_time=None, sent_progress=None):
         with self.store.db(True) as db:
+            if sent_progress is not None:
+                if 'sent_progress' not in row and not any(
+                        field['name'] == 'sent_progress' for field in db.execute('PRAGMA table_info(resume_outbox)')):
+                    db.execute('ALTER TABLE resume_outbox ADD COLUMN sent_progress REAL')
+                return db.execute('UPDATE resume_outbox SET due=?,failures=?,sent_id=?,sent_time=?,sent_progress=? WHERE ticket=?',
+                                  (due, failures, sent_id, sent_time, sent_progress, row['ticket'])).rowcount == 1
             return db.execute('UPDATE resume_outbox SET due=?,failures=?,sent_id=?,sent_time=? WHERE ticket=?',
                               (due, failures, sent_id, sent_time, row['ticket'])).rowcount == 1
 

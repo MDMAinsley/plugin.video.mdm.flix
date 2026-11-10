@@ -1,3 +1,7 @@
+0.17.2
+- Match the live MDBList playback API's percentage precision and readback format.
+- Distinguish rejected progress requests from temporary service errors.
+
 0.17.1
 - Open MDBList phone approval from a QR code in the Kodi dialog.
 - Add optional background upload and readback for eligible stop positions, with offline recovery.
