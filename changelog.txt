@@ -1,3 +1,7 @@
+0.17.1
+- Open MDBList phone approval from a QR code in the Kodi dialog.
+- Add optional background upload and readback for eligible stop positions, with offline recovery.
+
 0.17.0
 - Connect to MDBList from a phone and browse the account watchlist.
 - Import watchlist titles into a chosen local list or add missing paused sessions to Continue Watching.

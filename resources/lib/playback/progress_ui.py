@@ -94,7 +94,7 @@ def show(nav,addon,core,params):
 def action(addon,core,params):
     try:
         if params.get('action')=='progress_help':
-            xbmcgui.Dialog().ok('Continue Watching','Progress is saved on this device after MDM video starts. Watch at least 30 seconds, then stop. MDBList connection and cross-device sync are coming in the next tracking stage.');return
+            xbmcgui.Dialog().ok('Continue Watching','Progress is saved on this device after MDM video starts. Watch at least 30 seconds, then stop. Open MDBList in Flix to manage optional progress uploads.');return
         operation=params.get('action')
         if operation in ('progress_mark','progress_clear'):
             item=requested(params)
@@ -103,7 +103,7 @@ def action(addon,core,params):
             item=row['item']
         if operation=='progress_mark':
             if params.get('watched') not in ('true','false'):raise ProgressError('Invalid watched action.')
-            store.save(item,0,row['duration'],params['watched']=='true')
+            store.save(item,0,row['duration'],params['watched']=='true',cancel_sync=True)
         elif operation=='progress_clear':
             if not xbmcgui.Dialog().yesno('Clear viewing record?', 'Remove this title’s saved position and watched state? Your lists and ratings are kept.'):return
             store.remove(item)

@@ -64,11 +64,37 @@ class State:
                    refresh_token=tokens['refresh_token'], expires=time.time()+tokens['expires_in'])
         return self.replace(row)
 
+    def enable_sync(self, previous, account, tokens):
+        if account['id'] != previous['id']:
+            raise MDBError('different_account')
+        if tokens.get('scope') != 'write':
+            raise MDBError('write_permission')
+        row = dict(previous, name=account['name'], generation=uuid.uuid4().hex, sync_id=uuid.uuid4().hex,
+                   access_token=tokens['access_token'], refresh_token=tokens['refresh_token'],
+                   expires=time.time()+tokens['expires_in'], sync_retry=0, sync_status='')
+        return self.replace(row, previous['generation'])
+
+    def disable_sync(self, previous):
+        row = dict(previous, generation=uuid.uuid4().hex)
+        for field in ('sync_id', 'sync_retry', 'sync_status'):
+            row.pop(field, None)
+        return self.replace(row, previous['generation'])
+
+    def sync_status(self, connection, message, retry=0):
+        with self.db(write=True) as database:
+            row = self.current(database)
+            if row and row.get('sync_id') == connection['sync_id']:
+                row.update(sync_status=message, sync_retry=retry)
+                database.execute('UPDATE connection SET value=? WHERE slot=1', (json.dumps(row),))
+
     def refresh(self, previous, tokens):
-        row = dict(previous, access_token=tokens['access_token'], refresh_token=tokens['refresh_token'],
-                   expires=time.time()+tokens['expires_in'], generation=uuid.uuid4().hex)
-        if not self.replace(row, previous['generation']):
-            raise MDBError('connection_changed')
+        with self.db(write=True) as database:
+            row = self.current(database)
+            if not row or row['generation'] != previous['generation']:
+                raise MDBError('connection_changed')
+            row.update(access_token=tokens['access_token'], refresh_token=tokens['refresh_token'],
+                       expires=time.time()+tokens['expires_in'], generation=uuid.uuid4().hex)
+            database.execute('UPDATE connection SET value=? WHERE slot=1', (json.dumps(row),))
         return row
 
     def disconnect(self, previous):

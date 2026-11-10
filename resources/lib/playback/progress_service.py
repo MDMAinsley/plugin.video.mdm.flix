@@ -1,6 +1,7 @@
 """AV-owned progress observer. No scraping, network, URLs or account operations."""
 import threading
 import time
+import uuid
 import xbmc
 import xbmcgui
 from resources.lib.playback import tracking
@@ -11,6 +12,9 @@ CHECKPOINT_INTERVAL = 10
 class Observer(xbmc.Player):
     def __init__(self,addon):
         super().__init__();self.addon=addon;self.active=None;self.position=0;self.duration=0;self.saved=0;self.last_written=None;self.warned=False;self.observed=False;self.seek_pending=0;self.seek_deadline=0;self.lock=threading.RLock()
+        self.sampled=0
+        self.sync_id=None
+        self.boot_id=uuid.uuid4().hex
 
     def current_token(self):
         try:
@@ -38,18 +42,19 @@ class Observer(xbmc.Player):
                         self.active=None
                     return False
                 self.seek_pending=0
-            self.position=position;self.duration=duration;self.observed=True;return True
+            self.position=position;self.duration=duration;self.sampled=time.time();self.observed=True;return True
         except (RuntimeError,ProgressError):return False
 
-    def write(self,force=False,failed=False):
+    def write(self,force=False,failed=False,final=False):
         if not self.active or not self.observed:return
         if self.addon.getSetting('progress_enabled')=='false':self.active=None;return
         if not force and time.monotonic()-self.saved<CHECKPOINT_INTERVAL:return
         watched=not failed and self.duration>=60 and self.position>=self.duration*.9
         checkpoint=(self.position,self.duration,watched)
-        if checkpoint==self.last_written:return
+        sync=(self.sync_id,self.sampled,None if final else self.boot_id) if self.sync_id and not failed else None
+        if checkpoint==self.last_written and not (self.sync_id and (final or failed)):return
         try:
-            Store(self.addon).save(self.active['item'],*checkpoint)
+            Store(self.addon).save(self.active['item'],*checkpoint,sync=sync,cancel_sync=self.last_written is None or failed)
             self.last_written=checkpoint
         except ProgressError as error:self.warning(str(error))
         self.saved=time.monotonic()
@@ -63,10 +68,15 @@ class Observer(xbmc.Player):
                     self.active=None;return
                 candidate=tracking.read(self.getPlayingItem()) if self.isPlayingVideo() else None
                 if self.active and candidate and candidate['token']==self.active['token']:return
-                if self.active:self.write(True)
+                if self.active:self.write(True,final=True)
                 self.active=None
                 if not candidate:return
                 self.active=candidate;self.position=0;self.duration=0;self.last_written=None;self.warned=False;self.observed=False;self.seek_pending=0
+                from resources.lib.mdblist_account import State, MDBError
+                try:
+                    self.sync_id=(State(self.addon).connection() or {}).get('sync_id')
+                except MDBError:
+                    self.sync_id=None
                 resume=candidate['resume']
                 if resume:
                     duration=seconds(self.getTotalTime())
@@ -87,7 +97,7 @@ class Observer(xbmc.Player):
         with self.lock:
             if not self.active:return
             if self.current_token()!=self.active['token']:
-                self.write(True);self.active=None;return
+                self.write(True,final=True);self.active=None;return
             if self.sample():self.write()
 
     def onPlayBackPaused(self):
@@ -108,7 +118,7 @@ class Observer(xbmc.Player):
             # The latest owned sample survives when the final read is unavailable.
             if self.active:
                 self.sample()
-                self.write(True)
+                self.write(True,final=True)
             self.active=None
 
     def onPlayBackStopped(self):
@@ -140,6 +150,8 @@ def run(addon):
     sharing_worker=start_sharing(addon,monitor)
     from resources.lib.playback.native_identity import start as start_identity
     identity_worker=start_identity(addon,monitor)
+    from resources.lib.mdblist_resume import start as start_resume_sync
+    resume_worker=start_resume_sync(addon,monitor,observer.boot_id)
     try:
         while not monitor.waitForAbort(1):
             observer.tick();controls.tick()

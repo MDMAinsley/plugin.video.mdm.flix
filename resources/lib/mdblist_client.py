@@ -116,8 +116,8 @@ class DeviceFlow:
             raise MDBError('application_not_configured')
         self.client_id, self.transport = client_id.strip(), transport
 
-    def begin(self):
-        value = self.transport('POST', '/oauth/device-authorization/', body={'client_id': self.client_id, 'scope': 'read'}, form=True)
+    def begin(self, scope='read'):
+        value = self.transport('POST', '/oauth/device-authorization/', body={'client_id': self.client_id, 'scope': scope}, form=True)
         if not isinstance(value, dict):
             raise MDBError('invalid_response')
         code, device = value.get('user_code'), value.get('device_code')
@@ -139,11 +139,12 @@ class DeviceFlow:
     def _token(self, body):
         body = dict(body, client_id=self.client_id)
         value = self.transport('POST', '/oauth/token/', body=body, form=True)
-        if not isinstance(value, dict) or value.get('token_type', '').lower() != 'bearer':
+        if not isinstance(value, dict) or str(value.get('token_type', '')).lower() != 'bearer':
             raise MDBError('invalid_response')
         if not all(isinstance(value.get(k), str) and value[k] for k in ('access_token', 'refresh_token')):
             raise MDBError('invalid_response')
         duration = bounded_number(value.get('expires_in'), maximum=2592000)
         if not duration:
             raise MDBError('invalid_response')
-        return {'access_token': value['access_token'], 'refresh_token': value['refresh_token'], 'expires_in': duration}
+        return {'access_token': value['access_token'], 'refresh_token': value['refresh_token'],
+                'expires_in': duration, 'scope': value.get('scope', '')}

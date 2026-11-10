@@ -1,4 +1,4 @@
-"""Read-only MDBList account and watchlist screens."""
+"""MDBList account, watchlist, imports and resume sync controls."""
 import time
 
 import xbmc
@@ -6,7 +6,7 @@ import xbmcgui
 
 from .mdblist_account import State
 from .mdblist_client import CLIENT_ID, Client, DeviceFlow, MDBError
-from . import mdblist_import
+from . import mdblist_approval, mdblist_import
 from .library_store import Library, LibraryError
 from .playback.progress import ProgressError, Store
 
@@ -21,6 +21,8 @@ MESSAGES = {
     'connection_changed': 'The MDBList connection changed. Open MDBList and try again.',
     'watchlist_too_large': 'This watchlist exceeds the device import limit. You can still browse it.',
     'progress_too_large': 'There are too many paused sessions to import in one operation.',
+    'different_account': 'Use the same MDBList account that is connected to Flix.',
+    'write_permission': 'MDBList did not grant permission to upload progress.',
 }
 
 
@@ -30,25 +32,23 @@ def safe_label(value, default):
     return ''.join(c for c in value[:200] if c.isprintable()).replace('[', '［').replace(']', '］').strip() or default
 
 
-def connect(state):
+def connect(state, previous=None):
     flow = DeviceFlow(CLIENT_ID)
-    session = flow.begin()
-    progress = xbmcgui.DialogProgress()
-    text = 'On your phone, open '+session['verification_uri']+'\nEnter code '+session['user_code']
-    progress.create('Connect MDBList', text)
+    session = flow.begin('write') if previous else flow.begin()
     monitor = xbmc.Monitor()
     deadline = time.monotonic()+session['expires_in']
-    interval = session['interval']
-    try:
+
+    def poll(cancelled):
+        interval = session['interval']
         while True:
             next_poll = time.monotonic()+interval
             while time.monotonic() < min(next_poll, deadline):
-                if progress.iscanceled() or monitor.waitForAbort(.2):
-                    return False
+                if cancelled():
+                    return None
             if time.monotonic() >= deadline:
                 raise MDBError('expired_token')
-            if progress.iscanceled() or monitor.abortRequested():
-                return False
+            if cancelled():
+                return None
             try:
                 tokens = flow.poll(session['device_code'])
             except MDBError as error:
@@ -58,14 +58,19 @@ def connect(state):
                     interval += 5
                     continue
                 raise
+            if cancelled():
+                return None
             account = Client(token=tokens['access_token']).account()
-            if progress.iscanceled() or monitor.abortRequested():
-                return False
-            if not state.connect(account, tokens):
-                raise MDBError('connection_changed')
-            return True
-    finally:
-        progress.close()
+            return None if cancelled() else (account, tokens)
+
+    result = mdblist_approval.show(session, monitor, poll)
+    if not result or monitor.abortRequested():
+        return False
+    account, tokens = result
+    saved = state.enable_sync(previous, account, tokens) if previous else state.connect(account, tokens)
+    if not saved:
+        raise MDBError('connection_changed')
+    return True
 
 
 def action(addon, action_name):
@@ -80,6 +85,20 @@ def action(addon, action_name):
             if dialog.yesno(TITLE, 'Disconnect MDBList on this device?', 'Cancel', 'Disconnect'):
                 if state.disconnect(current):
                     xbmc.executebuiltin('Container.Refresh')
+        elif action_name == 'mdblist_enable_sync' and current and not current.get('sync_id'):
+            message = ('Send future stop positions from this device to MDBList? '
+                       'Approve playback access on your phone. Existing viewing history stays on this device.')
+            if dialog.yesno(TITLE, message, 'Cancel', 'Continue') and connect(state, current):
+                dialog.ok(TITLE, 'Progress sync is on. Flix will start syncing from your next playback.')
+                xbmc.executebuiltin('Container.Refresh')
+        elif action_name == 'mdblist_disable_sync' and current and current.get('sync_id'):
+            if state.disable_sync(current):
+                xbmc.executebuiltin('Container.Refresh')
+        elif action_name == 'mdblist_sync_status' and current and current.get('sync_id'):
+            from .playback.resume_outbox import Outbox
+            count = Outbox(Store(addon)).count(current['sync_id'])
+            status = current.get('sync_status') or 'Waiting for the next eligible stop position.'
+            dialog.ok(TITLE, 'Pending positions: {}\n{}\nPositions near the end of a title stay on this device.'.format(count, status))
         elif action_name in ('mdblist_import_watchlist', 'mdblist_import_progress'):
             if not current:
                 dialog.ok(TITLE, 'Connect MDBList before importing.')
@@ -151,6 +170,11 @@ def show(nav, addon, params):
                 nav.add_folder('Watchlist · '+safe_label(current['name'], TITLE), 'mdblist_watchlist')
                 nav.add_action('Import watchlist into a local list', 'mdblist_import_watchlist')
                 nav.add_action('Import paused viewing into Continue Watching', 'mdblist_import_progress')
+                if current.get('sync_id'):
+                    nav.add_action('Progress sync status', 'mdblist_sync_status')
+                    nav.add_action('Turn off progress sync', 'mdblist_disable_sync')
+                else:
+                    nav.add_action('Enable progress sync', 'mdblist_enable_sync')
                 nav.add_action('Disconnect MDBList', 'mdblist_disconnect')
             else:
                 nav.add_action('Connect MDBList', 'mdblist_connect')

@@ -56,6 +56,7 @@ class Store:
         try:
             os.makedirs(os.path.dirname(self.path),exist_ok=True)
             db=sqlite3.connect(self.path,timeout=1);db.row_factory=sqlite3.Row;db.execute('PRAGMA cache_size=-128')
+            db.execute('PRAGMA foreign_keys=ON')
             version=db.execute('PRAGMA user_version').fetchone()[0]
             if version not in (0,1):raise ProgressError('Update Flix before opening this newer viewing-progress database.')
             if version==0:
@@ -84,7 +85,7 @@ class Store:
         identity=key(item)
         with self.db() as db:return self.record(db.execute('SELECT * FROM progress WHERE identity=?',(identity,)).fetchone())
 
-    def save(self,item,position,duration,watched=False):
+    def save(self,item,position,duration,watched=False,*,sync=None,cancel_sync=False):
         item=clean(item);identity=key(item);position=seconds(position);duration=seconds(duration)
         if type(watched) is not bool:raise ProgressError('Invalid watched state.')
         if duration and position>duration:position=duration
@@ -94,6 +95,9 @@ class Store:
                 raise ProgressError('This device has 1000 viewing records. Remove old records in Viewing History to save new ones.')
             db.execute('INSERT INTO progress VALUES(?,?,?,?,?,?) ON CONFLICT(identity) DO UPDATE SET item=excluded.item,position=excluded.position,duration=excluded.duration,watched=excluded.watched,updated=excluded.updated',
                        (identity,json.dumps(item,ensure_ascii=False),position,duration,int(watched),int(time.time())))
+            if sync or cancel_sync:
+                from .resume_outbox import replace
+                replace(db,identity,sync,position,duration,watched)
 
     def rows(self,continuing=True):
         with self.db() as db:

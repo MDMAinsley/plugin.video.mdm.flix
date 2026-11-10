@@ -131,7 +131,8 @@ class Router:
             from resources.lib.mdblist_browse import show
             show(nav, self.addon, self.params)
 
-        elif action in ('mdblist_connect', 'mdblist_disconnect', 'mdblist_import_watchlist', 'mdblist_import_progress'):
+        elif action in ('mdblist_connect', 'mdblist_disconnect', 'mdblist_import_watchlist', 'mdblist_import_progress',
+                        'mdblist_enable_sync', 'mdblist_disable_sync', 'mdblist_sync_status'):
             from resources.lib.mdblist_browse import action as manage_mdblist
             manage_mdblist(self.addon, action)
             return
