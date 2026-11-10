@@ -1,3 +1,6 @@
+0.17.6
+- Refresh cached searches when the Link Torznab feed or its settings change.
+
 0.17.5
 - Choose playback sync before connecting to MDBList and approve both in one scan.
 - Let the MDM Skin Home Refresh request fresh MDBList viewing progress.

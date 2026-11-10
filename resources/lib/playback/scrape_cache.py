@@ -22,6 +22,7 @@ FLIX_SETTINGS = (
 LINK_SETTINGS = (
     'source_mode', 'alldebrid_enabled', 'alldebrid_api_key', 'provider_archive',
     'provider_torrentio', 'provider_torrentio_proxy', 'device_torrentio_ipv4', 'device_quality_max', 'device_unknown_quality',
+    'provider_torznab_enabled', 'provider_torznab_url', 'provider_torznab_api_key',
     'device_max_size_gib', 'device_unknown_size', 'device_connection_mbps',
     'device_unknown_bitrate', 'device_slow_sources', 'device_source_order',
     'device_search_timeout', 'device_request_timeout', 'device_workers',
