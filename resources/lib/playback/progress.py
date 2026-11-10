@@ -32,6 +32,9 @@ def clean(item):
         value=item.get(key);result[key]=value[:limit] if isinstance(value,str) else ''
     if not result['title']:raise ProgressError('This title has no name for Continue Watching.')
     result['year']=integer(item['year'],1) if item.get('year') else 0
+    catalogue_duration=item.get('duration_seconds')
+    if type(catalogue_duration) in (int,float) and 60<=catalogue_duration<=86400:
+        result['duration_seconds']=float(catalogue_duration)
     art=item.get('artwork');art=art if isinstance(art,dict) else {}
     result['artwork']={}
     for key in ('poster','fanart','thumb'):
@@ -47,6 +50,11 @@ def seconds(value):
     if type(value) not in (int,float) or not math.isfinite(value) or not 0<=value<=86400:
         raise ProgressError('Kodi returned an invalid playback position.')
     return float(value)
+
+
+def display_position(value):
+    rounded=int(value+.5)
+    return '{}:{:02d}'.format(rounded//60,rounded%60)
 
 class Store:
     def __init__(self,addon):

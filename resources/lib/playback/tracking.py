@@ -6,7 +6,7 @@ import uuid
 from contextlib import contextmanager
 from contextvars import ContextVar
 import xbmcgui
-from resources.lib.playback.progress import clean,ProgressError,seconds
+from resources.lib.playback.progress import clean,display_position,ProgressError,seconds
 from resources.lib.playback.viewing import Viewing
 from resources.lib.playback.errors import Cancelled
 
@@ -34,9 +34,9 @@ def stamp(listitem):
     except ProgressError as error:
         xbmcgui.Dialog().notification('MDM Flix',str(error));previous=None
     if previous and not previous['watched'] and previous['position']>=30:
-        position=previous['position'];at=int(position)
+        position=previous['position']
         mode=row.get('_progress_mode')
-        choice=0 if mode=='resume' else 1 if mode=='restart' else xbmcgui.Dialog().select('Continue watching?', ['Resume from {}:{:02d}'.format(at//60,at%60),'Start again'])
+        choice=0 if mode=='resume' else 1 if mode=='restart' else xbmcgui.Dialog().select('Continue watching?', ['Resume from '+display_position(position),'Start again'])
         if choice<0:raise Cancelled('Resume cancelled.')
         if choice==0:resume=position
     payload=dict(schema=1,token=uuid.uuid4().hex,created=int(time.time()),item=item,resume=resume)

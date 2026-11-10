@@ -3,7 +3,7 @@ from contextlib import nullcontext
 import time
 import xbmc
 import xbmcgui
-from resources.lib.playback.progress import ProgressError,clean
+from resources.lib.playback.progress import ProgressError,clean,display_position
 from resources.lib.playback.viewing import Viewing
 from resources.lib.mdblist_account import State, MDBError
 from resources.lib.library_store import Library,LibraryError,identity
@@ -62,15 +62,15 @@ def show(nav,addon,core,params):
             continuing=params['action']=='continue_watching'
             rows=store.rows(continuing)
             for row in rows:
-                item=row['item'];at=int(row['position'])
-                text=label(item)+(' · Watched' if row['watched'] else ' · {}:{:02d}'.format(at//60,at%60))
+                item=row['item']
+                text=label(item)+(' · Watched' if row['watched'] else ' · '+display_position(row['position']))
                 nav.add_folder(text,'progress_details',params=identity_params(item),artwork=item['artwork'],info={'title':item['title'],'plot':item['plot'],'mediatype':item['media_type']})
             if not rows:nav.add_action('Nothing here yet — progress appears after watching for at least 30 seconds.','progress_help')
             nav.end('videos');return
         item=title_identity(params)
         show_level=item['media_type']=='tv'
         row=None if show_level else store.get(item)
-        at=int(row['position']) if row else 0
+        at=row['position'] if row else 0
         common=identity_params(item)
         metadata=title_metadata(addon,core,item,row)
         nav.category(metadata.get('info',{}).get('title') or 'Title actions')
@@ -78,7 +78,7 @@ def show(nav,addon,core,params):
             nav.add_folder('Browse episodes','tv_seasons',params=common,**metadata)
         else:
             if addon.getSetting('progress_enabled')!='false' and at>=30:
-                play_entry(nav,addon,'Resume from {}:{:02d}'.format(at//60,at%60),item,'resume',**metadata)
+                play_entry(nav,addon,'Resume from '+display_position(at),item,'resume',**metadata)
             play_entry(nav,addon,'Start again' if at or row and row['watched'] else 'Play',item,'restart',**metadata)
         try:
             media='movie' if item['media_type']=='movie' else 'tv'

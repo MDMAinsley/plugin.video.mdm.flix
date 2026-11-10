@@ -38,6 +38,11 @@ class Router:
 
     def dispatch(self):
         action = self.params.get("action", ACTION_HOME)
+        if (action == ACTION_AUTOPLAY and self.params.get("kodi_resume") == "1"
+                and "resume_mode" not in self.params and len(self.argv) > 3):
+            mode = {"resume:true":"resume", "resume:false":"restart"}.get(self.argv[3])
+            if mode:
+                self.params["resume_mode"] = mode
 
         if self.log:
             self.log.info(f"Routing action: {action}")

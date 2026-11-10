@@ -172,6 +172,16 @@ def episodes(nav, client, params):
     season = number(params.get("season"))
     parent = client.details("tv", tmdb_id)
     data = client.season(tmdb_id, season)
+    from resources.lib.playback.progress import ProgressError
+    from resources.lib.playback.viewing import Viewing
+    records = {}
+    if client.addon.getSetting('progress_enabled') != 'false':
+        try:
+            records = {item['episode']: row for row in Viewing(client.addon).merged()
+                       if (item := row['item'])['media_type'] == 'episode'
+                       and item['tmdb_id'] == tmdb_id and item['season'] == season}
+        except ProgressError:
+            pass
     count = 0
     for raw in data["episodes"]:
         if not isinstance(raw, dict):
@@ -182,6 +192,12 @@ def episodes(nav, client, params):
             continue
         raw = dict(raw, season_number=season)
         metadata = info(raw, "episode", parent)
+        record = records.get(episode)
+        if record:
+            if record['watched']:
+                metadata['playcount'] = 1
+            elif record['position'] >= 30:
+                metadata['resume_point'] = (record['position'],record['duration'])
         from resources.lib.catalogue.cards import add_title
         add_title(nav, client.addon, "{}. {}".format(episode, metadata["title"]), "tv", tmdb_id,
                   season=season, episode=episode, artwork=artwork(raw, parent, client.addon), info=metadata)

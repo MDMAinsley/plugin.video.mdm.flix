@@ -68,4 +68,7 @@ class Navigator:
         if content_type:
             xbmcplugin.setContent(self.handle, content_type)
 
-        xbmcplugin.endOfDirectory(self.handle)
+        if content_type == 'episodes':
+            xbmcplugin.endOfDirectory(self.handle,cacheToDisc=False)
+        else:
+            xbmcplugin.endOfDirectory(self.handle)

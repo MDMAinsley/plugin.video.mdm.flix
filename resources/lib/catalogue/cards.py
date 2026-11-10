@@ -38,6 +38,8 @@ def add_title(nav, addon, label, media, identifier, artwork=None, info=None,
     if media == "tv" and not is_episode:
         nav.add_folder(label, "tv_seasons", **common)
     elif addon.getSetting("playback_mode") == "Autoplay":
+        if is_episode and info and info.get("resume_point"):
+            params["kodi_resume"] = "1"
         nav.add_playable(label, "autoplay", **common)
     else:
         nav.add_folder(label, "sources", **common)

@@ -236,9 +236,16 @@ class Worker:
             self.state.sync_status(current,'MDBList viewing change is waiting for a retry.',time.time()+delay)
 
     def reconcile(self, current, row, client):
+        item = json.loads(row['item'])
         remote = remote_position(self.read_playback(current,client), row['identity'])
-        duration = readback_duration(remote, row['duration'])
-        if abs(duration - row['duration']) > max(60, row['duration'] * .05):
+        local_duration = row['duration']
+        catalogue_duration = item.get('duration_seconds',0)
+        duration = readback_duration(remote, catalogue_duration or local_duration)
+        difference = abs(duration - local_duration)
+        own_upload = bool(remote and matches_upload(row,remote))
+        known_runtime = catalogue_duration and abs(duration-catalogue_duration)<=60
+        can_translate = difference <= max(120,local_duration*.10) and (own_upload or known_runtime)
+        if difference > max(60,local_duration*.05) and not can_translate:
             self.finish(current, row, 'Kept the local position. MDBList has a different runtime for this title.')
             return
         desired = row['position'] / duration * 100
@@ -252,7 +259,7 @@ class Worker:
                           else 'Playback percentage verified. MDBList did not report a usable runtime.')
                 self.finish(current, row, status)
                 return
-            if remote['updated_at_ts'] >= int(row['sampled']) and not matches_upload(row, remote):
+            if remote['updated_at_ts'] >= int(row['sampled']) and not own_upload:
                 self.finish(current, row, 'Kept the newer or simultaneous MDBList position.')
                 return
         elif row['sent_time'] is not None:
@@ -274,7 +281,6 @@ class Worker:
             return
         if not self.outbox.begin_write(row):
             return
-        item = json.loads(row['item'])
         requested = round(desired, 2)
         started = int(time.time())
         # MDBList validates a decimal percentage with at most five digits.

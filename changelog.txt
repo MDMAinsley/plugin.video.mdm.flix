@@ -1,3 +1,7 @@
+0.17.4
+- Preserve stop seconds when MDBList uses a slightly different catalogue runtime.
+- Show Kodi's native watched and in-progress indicators on episode lists.
+
 0.17.3
 - Choose Local only or MDBList as the viewing progress source.
 - Pull paused positions and watched history in the background, and use the selected history for Next Episode.
