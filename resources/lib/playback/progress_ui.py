@@ -8,6 +8,7 @@ from resources.lib.playback.viewing import Viewing
 from resources.lib.mdblist_account import State, MDBError
 from resources.lib.library_store import Library,LibraryError,identity
 from resources.lib.catalogue.tmdb import TMDB,CatalogueError
+from resources.lib.home_rows import invalidate
 
 def identity_params(item):
     result={'media_type':item['media_type'],'tmdb_id':item['tmdb_id']}
@@ -134,6 +135,7 @@ def action(addon,core,params):
             if operation=='progress_unsave':library.remove(1,media,item['tmdb_id'])
             else:library.add(title_row(library,addon,core,media,item['tmdb_id']))
         else:raise ProgressError('Unknown viewing action.')
+        invalidate('continue' if operation in ('progress_mark','progress_clear') else 'my_list')
         queued=operation in ('progress_mark','progress_clear') and scope
         message='Saved locally and queued for MDBList.' if queued else 'Saved on this device.'
         xbmcgui.Dialog().notification('MDM Flix',message,xbmcgui.NOTIFICATION_INFO,2000);xbmc.executebuiltin('Container.Refresh')

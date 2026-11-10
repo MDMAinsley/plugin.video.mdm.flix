@@ -205,7 +205,7 @@ class Library:
             self._put(db,row)
             db.execute('UPDATE titles SET personal_rating=? WHERE media=? AND tmdb_id=?', (value,row['media'],row['tmdb_id'])); self._prune(db)
 
-    def rows(self, identifier=None, kind='all'):
+    def rows(self, identifier=None, kind='all', *, limit=500):
         if kind not in ('all','movie','tv','rated'):
             raise LibraryError('Invalid library filter.')
         with self.db() as db:
@@ -219,7 +219,8 @@ class Library:
                 sql+=' AND t.media=?';params.append(kind)
             if kind=='rated':
                 sql+=' AND t.personal_rating>0'
-            sql+=' ORDER BY '+('m.position,t.media,t.tmdb_id' if identifier is not None else 't.title COLLATE NOCASE,t.media,t.tmdb_id')+' LIMIT 500'
+            sql+=' ORDER BY '+('m.position,t.media,t.tmdb_id' if identifier is not None else 't.title COLLATE NOCASE,t.media,t.tmdb_id')+' LIMIT ?'
+            params.append(limit)
             return [dict(row) for row in db.execute(sql,params)]
 
     def move(self, identifier, media, tmdb_id, direction):

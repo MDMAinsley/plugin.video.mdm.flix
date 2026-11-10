@@ -117,10 +117,12 @@ class State:
                 return
             database.execute('CREATE TABLE IF NOT EXISTS playback_cache ('
                              'slot INTEGER PRIMARY KEY CHECK(slot=1), sync_id TEXT, saved REAL, data TEXT)')
-            if present is not None:
-                self.record_removals(database,'playback',sync_id,present)
+            previous = database.execute('SELECT data FROM playback_cache WHERE slot=1 AND sync_id=?', (sync_id,)).fetchone()
+            data = json.dumps(records,ensure_ascii=False)
+            removals_changed = present is not None and self.record_removals(database,'playback',sync_id,present)
             database.execute('INSERT OR REPLACE INTO playback_cache VALUES(1,?,?,?)',
-                             (sync_id,time.time(),json.dumps(records,ensure_ascii=False)))
+                             (sync_id,time.time(),data))
+            return not previous or previous[0] != data or removals_changed
 
     def save_watched(self, sync_id, records, *, complete=False):
         from .playback.progress import key
@@ -130,10 +132,12 @@ class State:
                 return
             database.execute('CREATE TABLE IF NOT EXISTS watched_cache (slot INTEGER PRIMARY KEY CHECK(slot=1), '
                              'sync_id TEXT, saved REAL, data TEXT)')
-            if complete:
-                self.record_removals(database,'watched',sync_id,{key(item) for item,_ in records})
+            previous = database.execute('SELECT data FROM watched_cache WHERE slot=1 AND sync_id=?', (sync_id,)).fetchone()
+            data = json.dumps(records,ensure_ascii=False)
+            removals_changed = complete and self.record_removals(database,'watched',sync_id,{key(item) for item,_ in records})
             database.execute('INSERT OR REPLACE INTO watched_cache VALUES(1,?,?,?)',
-                             (sync_id,time.time(),json.dumps(records,ensure_ascii=False)))
+                             (sync_id,time.time(),data))
+            return not previous or previous[0] != data or removals_changed
 
     @staticmethod
     def record_removals(database, kind, sync_id, present):
@@ -149,8 +153,9 @@ class State:
             if identity not in present:
                 records[identity] = [now,record[1:]]
         newest = sorted(records.items(),key=lambda row:row[1][0],reverse=True)[:1500]
-        database.execute('INSERT OR REPLACE INTO viewing_removals VALUES(?,?,?)',
-                         (kind,sync_id,json.dumps(dict(newest))))
+        data = json.dumps(dict(newest))
+        database.execute('INSERT OR REPLACE INTO viewing_removals VALUES(?,?,?)',(kind,sync_id,data))
+        return (old[0] if old else '{}') != data
 
     def viewing_removals(self, sync_id):
         with self.db() as database:

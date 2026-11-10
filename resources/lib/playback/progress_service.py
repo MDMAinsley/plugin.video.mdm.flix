@@ -6,6 +6,7 @@ import xbmc
 import xbmcgui
 from resources.lib.playback import tracking
 from resources.lib.playback.progress import Store,ProgressError,seconds
+from resources.lib.home_rows import invalidate
 
 CHECKPOINT_INTERVAL = 10
 
@@ -54,11 +55,16 @@ class Observer(xbmc.Player):
         checkpoint=(self.position,self.duration,watched)
         sync=(self.sync_id,self.sampled,None if final else self.boot_id) if self.sync_id and not failed else None
         action=(self.sync_id,'watched',self.sampled,None) if watched and final and self.history_sync else None
-        if checkpoint==self.last_written and not (self.sync_id and (final or failed)):return
+        if checkpoint==self.last_written and not (self.sync_id and (final or failed)):
+            if final or failed:
+                invalidate('continue')
+            return
         try:
             Store(self.addon).save(self.active['item'],*checkpoint,sync=sync,
                                   cancel_sync=self.last_written is None or failed,action=action)
             self.last_written=checkpoint
+            if final or failed:
+                invalidate('continue')
         except ProgressError as error:self.warning(str(error))
         self.saved=time.monotonic()
 

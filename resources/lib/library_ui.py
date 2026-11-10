@@ -4,6 +4,7 @@ import xbmc
 import xbmcgui
 from resources.lib.library_store import Library, LibraryError, identity, metadata, list_id
 from resources.lib.catalogue.tmdb import TMDB, CatalogueError
+from resources.lib.home_rows import invalidate
 
 
 def command(action, **params):
@@ -18,6 +19,15 @@ def name_input(default=''):
 
 def title_row(library, addon, core, media, identifier):
     return library.get(media,identifier) or metadata(TMDB(addon,core).details(media,identifier),media,identifier)
+
+
+def card_metadata(row, addon):
+    from resources.lib.catalogue.browse import artwork, info
+
+    raw = dict(id=row['tmdb_id'], title=row['title'], name=row['title'], release_date=row['date'],
+               first_air_date=row['date'], overview=row['plot'], poster_path=row['poster'],
+               backdrop_path=row['backdrop'])
+    return dict(artwork=artwork(raw, addon=addon), info=info(raw, 'movie' if row['media']=='movie' else 'tvshow'))
 
 
 def update_home_list_label(library):
@@ -35,8 +45,9 @@ def home_list_action(addon, choose=False):
             selected = next((i for i,row in enumerate(lists) if row['id']==current),0)
             choice = xbmcgui.Dialog().select('Home list shortcut', [row['name'] for row in lists],
                                              preselect=selected)
-            if 0 <= choice < len(lists):
+            if 0 <= choice < len(lists) and lists[choice]['id'] != current:
                 library.select_home_list(lists[choice]['id'])
+                invalidate('my_list')
         update_home_list_label(library)
     except LibraryError as error:
         if choose:
@@ -63,11 +74,9 @@ def show(nav, addon, core, params):
         kind=params.get('filter','all')
         rows=library.rows(identifier,kind)
         from resources.lib.catalogue.cards import add_title
-        from resources.lib.catalogue.browse import artwork, info
         for row in rows:
-            raw=dict(id=row['tmdb_id'],title=row['title'],name=row['title'],release_date=row['date'],first_air_date=row['date'],overview=row['plot'],poster_path=row['poster'],backdrop_path=row['backdrop'])
-            details=info(raw,'movie' if row['media']=='movie' else 'tvshow')
-            details['plot']+='\n\nYour rating: '+(str(row['personal_rating'])+'/10' if row['personal_rating'] else 'not rated')
+            card = card_metadata(row, addon)
+            card['info']['plot']+='\n\nYour rating: '+(str(row['personal_rating'])+'/10' if row['personal_rating'] else 'not rated')
             label=row['title']+(' [Film]' if row['media']=='movie' else ' [TV]')
             if row['personal_rating']:
                 label+=' · Yours {}/10'.format(row['personal_rating'])
@@ -75,7 +84,7 @@ def show(nav, addon, core, params):
             if identifier is not None:
                 for text,action in [('Remove from this list','library_remove'),('Move up','library_up'),('Move down','library_down')]:
                     context.append((text,command(action,list_id=list_id(identifier),media_type=row['media'],tmdb_id=row['tmdb_id'])))
-            add_title(nav,addon,label,row['media'],row['tmdb_id'],artwork=artwork(raw,addon=addon),info=details,extra_context=context)
+            add_title(nav,addon,label,row['media'],row['tmdb_id'],extra_context=context,**card)
         if not rows:
             nav.add_action('No titles here yet. Use a title’s My Library context menu to save or rate it.','library_help')
         nav.end('videos')
@@ -133,6 +142,7 @@ def action(addon, core, params):
                     library.rate(row,choice);changed=True
             else:raise LibraryError('Unknown library action.')
         if changed:
+            invalidate('my_list')
             if operation in ('library_rename','library_delete'):
                 update_home_list_label(library)
             xbmcgui.Dialog().notification('My Library','Saved on this device.',xbmcgui.NOTIFICATION_INFO,2000)

@@ -64,11 +64,11 @@ class Navigator:
     def category(self, label):
         xbmcplugin.setPluginCategory(self.handle, label)
 
-    def end(self, content_type=None):
+    def end(self, content_type=None, *, cache=True):
         if content_type:
             xbmcplugin.setContent(self.handle, content_type)
 
-        if content_type == 'episodes':
+        if not cache or content_type == 'episodes':
             xbmcplugin.endOfDirectory(self.handle,cacheToDisc=False)
         else:
             xbmcplugin.endOfDirectory(self.handle)

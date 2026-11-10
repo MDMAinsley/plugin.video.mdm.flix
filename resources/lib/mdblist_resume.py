@@ -11,6 +11,7 @@ from .mdblist_history import item_state, recent_watched, watched_body
 from .playback.progress import MAX_RECORDS, ProgressError, Store, key
 from .playback.resume_outbox import MAX_RESUME_PERCENT, Outbox
 from .playback.viewing_outbox import Actions
+from .home_rows import invalidate
 
 APP_NAME = 'MDM Flix'
 VERIFY_DELAY = 10
@@ -139,8 +140,9 @@ class Worker:
                 if not complete:
                     seen = {key(item) for item,_ in watched}
                     watched.extend(row for row in self.state.watched_snapshot(current['sync_id']) if key(row[0]) not in seen)
-                self.state.save_watched(current['sync_id'],sorted(watched,key=lambda row:row[1],reverse=True)[:1500],
-                                        complete=complete)
+                if self.state.save_watched(current['sync_id'],sorted(watched,key=lambda row:row[1],reverse=True)[:1500],
+                                           complete=complete):
+                    invalidate('continue')
         except MDBError as error:
             if edit and error.code != 'connection_changed':
                 self.retry_edit(current,edit,error)
@@ -158,7 +160,8 @@ class Worker:
             records = parse_paused(values)
             present = {remote_key(row) if isinstance(row,dict) else None for row in values}
             # A malformed row may be a previous title with incomplete metadata.
-            self.state.save_playback(current['sync_id'],records,present if None not in present else None)
+            if self.state.save_playback(current['sync_id'],records,present if None not in present else None):
+                invalidate('continue')
         except MDBError:
             # Keep the previous cache if the new response cannot be stored.
             pass

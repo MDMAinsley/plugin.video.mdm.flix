@@ -2,8 +2,46 @@
 from resources.lib.catalogue.tmdb import TMDB, CatalogueError, number
 from resources.lib.catalogue.browse import info, artwork
 
+ROW_LIMIT = 12
+
+
+def show_continue(nav, addon):
+    from resources.lib.playback.progress import ProgressError, display_position
+    from resources.lib.playback.progress_ui import label, play_entry, title_metadata
+    from resources.lib.playback.viewing import Viewing
+
+    if addon.getSetting('progress_enabled') != 'false':
+        try:
+            for row in Viewing(addon).rows()[:ROW_LIMIT]:
+                item = row['item']
+                text = label(item) + ' · ' + display_position(row['position'])
+                play_entry(nav, addon, text, item, 'resume', **title_metadata(addon, None, item, row))
+        except ProgressError:
+            pass
+    nav.end('videos', cache=False)
+
+
+def show_home_list(nav, addon):
+    from resources.lib.catalogue.cards import add_title
+    from resources.lib.library_store import Library, LibraryError
+    from resources.lib.library_ui import card_metadata
+
+    try:
+        library = Library(addon)
+        for row in library.rows(library.home_list()['id'], limit=ROW_LIMIT):
+            add_title(nav, addon, row['title'], row['media'], row['tmdb_id'], **card_metadata(row, addon))
+    except (LibraryError, CatalogueError):
+        pass
+    nav.end('videos', cache=False)
+
 
 def show(nav, addon, core, params):
+    row = params.get('row')
+    if row == 'continue':
+        return show_continue(nav, addon)
+    if row == 'my_list':
+        return show_home_list(nav, addon)
+
     media = params.get("media_type", "movie")
     if media not in ("movie", "tv"):
         nav.end()
@@ -29,7 +67,7 @@ def show(nav, addon, core, params):
             add_title(nav, addon, metadata["title"], media, identifier,
                       artwork=artwork(raw, addon=addon), info=metadata)
             count += 1
-            if count == 12:
+            if count == ROW_LIMIT:
                 break
     except CatalogueError:
         pass  # Empty row; home settings/navigation remains available, no modal.
