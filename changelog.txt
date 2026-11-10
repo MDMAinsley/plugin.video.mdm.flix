@@ -1,3 +1,7 @@
+0.17.5
+- Choose playback sync before connecting to MDBList and approve both in one scan.
+- Let the MDM Skin Home Refresh request fresh MDBList viewing progress.
+
 0.17.4
 - Preserve stop seconds when MDBList uses a slightly different catalogue runtime.
 - Show Kodi's native watched and in-progress indicators on episode lists.

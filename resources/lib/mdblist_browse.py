@@ -11,6 +11,7 @@ from .library_store import Library, LibraryError
 from .playback.progress import ProgressError, Store
 
 TITLE = 'MDBList'
+SYNC_NOTICE = 'Sync future stop positions and watched changes across devices. Existing local viewing history stays on this device.'
 MESSAGES = {
     'access_denied': 'Sign-in was declined.',
     'expired_token': 'That code expired. Choose Connect MDBList to start again.',
@@ -67,13 +68,23 @@ def connect(state, previous=None, *, sync=False):
     if not result or monitor.abortRequested():
         return False
     account, tokens = result
-    saved = state.enable_sync(previous, account, tokens) if previous else state.connect(account, tokens,sync=sync)
+    saved = state.enable_sync(previous, account, tokens) if previous else state.connect(account, tokens, sync=sync)
     if not saved:
         raise MDBError('connection_changed')
     return True
 
 
 def action(addon, action_name):
+    if action_name == 'mdblist_home_refresh':
+        try:
+            if addon.getSetting('progress_enabled') != 'false':
+                state = State(addon)
+                current = state.connection()
+                if current and current.get('sync_id'):
+                    state.request_progress_refresh(current)
+        except MDBError:
+            xbmc.log('[MDM Flix] Could not request the MDBList home refresh.', xbmc.LOGWARNING)
+        return
     dialog = xbmcgui.Dialog()
     try:
         state = State(addon)
@@ -88,16 +99,25 @@ def action(addon, action_name):
             else:
                 return
         if action_name == 'mdblist_connect' and not current:
-            if connect(state):
+            choice = dialog.select('Connect MDBList', [
+                'Connect and sync viewing progress',
+                'Connect for browsing and imports',
+            ])
+            if choice == 0:
+                action_name = 'mdblist_enable_sync'
+            elif choice == 1 and connect(state):
                 xbmc.executebuiltin('Container.Refresh')
-        elif action_name == 'mdblist_disconnect' and current:
+        if action_name == 'mdblist_disconnect' and current:
             if dialog.yesno(TITLE, 'Disconnect MDBList on this device?', 'Cancel', 'Disconnect'):
                 if state.disconnect(current):
                     xbmc.executebuiltin('Container.Refresh')
         elif action_name == 'mdblist_enable_sync' and not (current and current.get('sync_id')):
-            message = ('Sync future stop positions and watched changes with MDBList? '
-                       'Approve playback access on your phone. Existing viewing history stays on this device.')
-            if dialog.yesno(TITLE, message, 'Cancel', 'Continue') and connect(state, current,sync=True):
+            if dialog.yesno(TITLE, SYNC_NOTICE, 'Cancel', 'Continue'):
+                if current and current.get('write_access'):
+                    if not state.enable_sync(current):
+                        raise MDBError('connection_changed')
+                elif not connect(state, current, sync=True):
+                    return
                 dialog.ok(TITLE, 'Progress sync is on. Flix will start syncing from your next playback.')
                 xbmc.executebuiltin('Container.Refresh')
         elif action_name == 'mdblist_disable_sync' and current and current.get('sync_id'):

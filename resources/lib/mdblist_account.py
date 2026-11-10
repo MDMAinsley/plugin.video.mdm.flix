@@ -61,25 +61,30 @@ class State:
 
     def connect(self, account, tokens, *, sync=False):
         row = dict(account, generation=uuid.uuid4().hex, access_token=tokens['access_token'],
-                   refresh_token=tokens['refresh_token'], expires=time.time()+tokens['expires_in'])
+                   refresh_token=tokens['refresh_token'], expires=time.time()+tokens['expires_in'],
+                   write_access=tokens.get('scope') == 'write')
         if sync:
-            if tokens.get('scope') != 'write':
+            if not row['write_access']:
                 raise MDBError('write_permission')
             row.update(sync_id=uuid.uuid4().hex, sync_retry=0, sync_status='', history_sync=True)
         return self.replace(row)
 
-    def enable_sync(self, previous, account, tokens):
-        if account['id'] != previous['id']:
-            raise MDBError('different_account')
-        if tokens.get('scope') != 'write':
+    def enable_sync(self, previous, account=None, tokens=None):
+        row = dict(previous)
+        if tokens is not None:
+            if account['id'] != previous['id']:
+                raise MDBError('different_account')
+            row.update(name=account['name'], access_token=tokens['access_token'], refresh_token=tokens['refresh_token'],
+                       expires=time.time()+tokens['expires_in'], write_access=tokens.get('scope') == 'write')
+        if not row.get('write_access'):
             raise MDBError('write_permission')
-        row = dict(previous, name=account['name'], generation=uuid.uuid4().hex, sync_id=uuid.uuid4().hex,
-                   access_token=tokens['access_token'], refresh_token=tokens['refresh_token'],
-                   expires=time.time()+tokens['expires_in'], sync_retry=0, sync_status='', history_sync=True)
+        row.update(generation=uuid.uuid4().hex, sync_id=uuid.uuid4().hex, sync_retry=0, sync_status='', history_sync=True)
         return self.replace(row, previous['generation'])
 
     def disable_sync(self, previous):
         row = dict(previous, generation=uuid.uuid4().hex)
+        # Older connections only had a sync ID after MDBList granted write access.
+        row.setdefault('write_access', bool(previous.get('sync_id')))
         for field in ('sync_id', 'sync_retry', 'sync_status', 'history_sync', 'progress_refresh'):
             row.pop(field, None)
         return self.replace(row, previous['generation'])
@@ -90,7 +95,7 @@ class State:
     def request_progress_refresh(self, previous):
         with self.db(write=True) as database:
             row = self.current(database)
-            if not row or row['generation'] != previous['generation'] or not row.get('sync_id'):
+            if not row or not row.get('sync_id') or row['sync_id'] != previous.get('sync_id'):
                 return False
             now = time.time()
             if now - row.get('progress_refresh',0) >= 15:
@@ -203,6 +208,8 @@ class State:
                 raise MDBError('connection_changed')
             row.update(access_token=tokens['access_token'], refresh_token=tokens['refresh_token'],
                        expires=time.time()+tokens['expires_in'], generation=uuid.uuid4().hex)
+            if tokens.get('scope'):
+                row['write_access'] = tokens['scope'] == 'write'
             database.execute('UPDATE connection SET value=? WHERE slot=1', (json.dumps(row),))
         return row
 
