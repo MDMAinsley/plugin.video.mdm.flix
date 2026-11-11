@@ -1,3 +1,7 @@
+0.17.15
+- Play official trailers as ordinary Kodi video items after the title lookup has finished.
+- Restore in-Kodi trailer playback on Windows.
+
 0.17.14
 - Open official trailers in the default Windows browser to avoid the Kodi YouTube playback freeze.
 

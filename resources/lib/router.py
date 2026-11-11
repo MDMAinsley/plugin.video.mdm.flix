@@ -111,8 +111,14 @@ class Router:
             return
 
         elif action == 'trailer_play':
-            from resources.lib.catalogue.trailers import play
-            play(self.addon, self.core, self.params)
+            from resources.lib.catalogue.trailers import show
+            show(nav, self.addon, self.core, self.params)
+            return
+
+        elif action == 'trailer_setup':
+            from resources.lib.catalogue.trailers import ready
+            ready()
+            xbmc.executebuiltin('Container.Refresh')
             return
 
         elif action == "home_title":

@@ -1,13 +1,14 @@
 """On-demand title trailers, separate from feature playback and tracking."""
 import json
-import os
 import re
 from urllib.parse import urlencode
 
 import xbmc
 import xbmcgui
+import xbmcplugin
 
 from resources.lib.catalogue.tmdb import TMDB, CatalogueError, number
+from resources.lib.metadata.listitem import create_playable_item
 
 YOUTUBE = 'plugin.video.youtube'
 VIDEO_KEY = re.compile(r'[A-Za-z0-9_-]{11}')
@@ -77,53 +78,30 @@ def ready():
     return False
 
 
-def play(addon, core, params):
-    """Only an explicit action starts a trailer; no MDM playback token is stamped."""
+def show(nav, addon, core, params):
+    """List a native video item after the title dialog and lookup have finished."""
     from resources.lib.playback.progress_ui import title_identity
     from resources.lib.playback.progress import ProgressError
 
-    dialog = xbmcgui.Dialog()
-    player = xbmc.Player()
-    progress = None
+    nav.category('Trailers')
     try:
         item = title_identity(params)
         media = 'movie' if item['media_type'] == 'movie' else 'tv'
-        if player.isPlaying():
-            dialog.ok('Watch Trailer', 'Stop the current playback before watching a trailer.')
-            return False
-        progress = xbmcgui.DialogProgress()
-        progress.create('Watch Trailer', 'Finding a trailer…')
-        video = find(addon, core, media, item['tmdb_id'], progress.iscanceled)
-        cancelled = progress.iscanceled()
-        progress.close()
-        progress = None
-        if cancelled:
-            return False
+        monitor = xbmc.Monitor()
+        video = find(addon, core, media, item['tmdb_id'], monitor.abortRequested)
+        if monitor.abortRequested():
+            return
         if video is None:
-            dialog.ok('Watch Trailer', 'No official YouTube trailer is listed for this title.')
-            return False
-        if xbmc.getCondVisibility('System.Platform.Windows'):
-            # The in-Kodi YouTube handoff can freeze on Windows profiles,
-            # including after YouTube setup. Open the same official video externally.
-            try:
-                os.startfile('https://www.youtube.com/watch?' + urlencode({'v': video['key']}))
-            except OSError:
-                dialog.ok('Watch Trailer', 'Windows could not open your default browser.')
-                return False
-            return True
-        if not ready() or player.isPlaying():
-            return False
+            xbmcgui.Dialog().notification('Watch Trailer', 'No official trailer is listed for this title.')
+            return
+        if youtube_state() is not True:
+            nav.add_action('Set up YouTube to play trailers', 'trailer_setup')
+            return
         url = 'plugin://plugin.video.youtube/play/?' + urlencode({'video_id': video['key'], 'incognito': 'true'})
-        # Use Kodi's normal playback command for external add-ons. In particular,
-        # the YouTube resolver can open setup dialogs while resolving the URL.
-        xbmc.executebuiltin(f'PlayMedia({url},noresume)')
-        return True
+        label = 'Play official series trailer' if item['media_type'] == 'episode' else 'Play official trailer'
+        xbmcplugin.addDirectoryItem(handle=nav.handle, url=url,
+                                    listitem=create_playable_item(label), isFolder=False)
     except (CatalogueError, ProgressError):
-        dialog.ok('Watch Trailer', 'The trailer listing could not be loaded. Please try again later.')
-        return False
-    except RuntimeError:
-        dialog.ok('Watch Trailer', 'Kodi could not start the trailer. Check that the YouTube add-on is ready.')
-        return False
+        xbmcgui.Dialog().notification('Watch Trailer', 'The trailer listing could not be loaded.')
     finally:
-        if progress is not None:
-            progress.close()
+        nav.end('videos', cache=False)
