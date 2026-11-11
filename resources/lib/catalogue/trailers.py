@@ -13,19 +13,18 @@ VIDEO_KEY = re.compile(r'[A-Za-z0-9_-]{11}')
 
 
 def candidates(data, identifier, language):
-    if data.get('id') != identifier:
+    if type(data.get('id')) is not int or data['id'] != identifier:
         raise CatalogueError('The trailer listing does not match this title.')
     rows = []
     for row in data['results'][:200]:
         if (isinstance(row, dict) and row.get('site') == 'YouTube'
-                and row.get('type') in ('Trailer', 'Teaser')
+                and row.get('type') == 'Trailer' and row.get('official') is True
                 and isinstance(row.get('key'), str) and VIDEO_KEY.fullmatch(row['key'])
                 and row.get('iso_639_1') in (language[:2], 'en', None)):
             rows.append(row)
     # Newest first within each preference. Never use arbitrary returned URLs.
     rows.sort(key=lambda row: str(row.get('published_at', ''))[:32], reverse=True)
-    rows.sort(key=lambda row: (row['type'] != 'Trailer', row.get('official') is not True,
-                               row.get('iso_639_1') != language[:2]))
+    rows.sort(key=lambda row: row.get('iso_639_1') != language[:2])
     return rows
 
 
@@ -73,9 +72,7 @@ def ready():
                             yeslabel='Install YouTube', nolabel='Later'):
             return False
         xbmc.executebuiltin('InstallAddon(plugin.video.youtube)', True)
-    if youtube_state() is True:
-        return True
-    dialog.ok('Watch Trailer', 'Finish installing or enabling YouTube, then choose Watch Trailer again.')
+    dialog.ok('Watch Trailer', 'Once YouTube is ready, choose Watch Trailer again.')
     return False
 
 
@@ -102,19 +99,14 @@ def play(addon, core, params):
         if cancelled:
             return False
         if video is None:
-            dialog.ok('Watch Trailer', 'No supported trailer is available for this title yet.')
+            dialog.ok('Watch Trailer', 'No official YouTube trailer is listed for this title.')
             return False
         if not ready() or player.isPlaying():
             return False
         url = 'plugin://plugin.video.youtube/play/?' + urlencode({'video_id': video['key'], 'incognito': 'true'})
-        title = 'Trailer' if video['type'] == 'Trailer' else 'Teaser'
-        entry = xbmcgui.ListItem(label=title, path=url)
-        entry.setProperty('IsPlayable', 'true')
-        entry.setProperty('mdm.flix.trailer', video['key'])
-        entry.getVideoInfoTag().setMediaType('video')
-        # No catalogue IDs, resume properties or tracking.stamp(). The normal
-        # progress and timing observers cannot claim this playback as an episode.
-        player.play(url, entry)
+        # Use Kodi's normal playback command for external add-ons. In particular,
+        # the YouTube resolver can open setup dialogs while resolving the URL.
+        xbmc.executebuiltin(f'PlayMedia({url},noresume)')
         return True
     except (CatalogueError, ProgressError):
         dialog.ok('Watch Trailer', 'The trailer listing could not be loaded. Please try again later.')

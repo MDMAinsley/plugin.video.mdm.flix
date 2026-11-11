@@ -170,7 +170,8 @@ def show(nav,addon,core,params):
             if item['media_type']=='episode':
                 nav.add_folder('Episodes','tv_episodes',params={'tmdb_id':item['tmdb_id'],'season':item['season'],
                                                                'progress_labels':'1'},**metadata)
-        nav.add_action('Watch Trailer','trailer_play',params=common,**metadata)
+        trailer_label = 'Watch Series Trailer' if item['media_type'] == 'episode' else 'Watch Trailer'
+        nav.add_action(trailer_label,'trailer_play',params=common,**metadata)
         try:
             media='movie' if item['media_type']=='movie' else 'tv'
             saved=any(membership['id']==1 for membership in Library(addon).memberships(media,item['tmdb_id']))

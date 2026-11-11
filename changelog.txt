@@ -1,3 +1,7 @@
+0.17.12
+- Use Kodi's normal playback handoff for trailers and require an official trailer on the exact TMDB title.
+- Label series trailers in episode actions and let YouTube finish setup before playing.
+
 0.17.11
 - Add on-demand Watch Trailer to Home and browsing title actions, with YouTube setup and no viewing-progress tracking.
 
