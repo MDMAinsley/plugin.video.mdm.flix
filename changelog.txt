@@ -1,3 +1,6 @@
+0.17.14
+- Open official trailers in the default Windows browser to avoid the Kodi YouTube playback freeze.
+
 0.17.13
 - On Windows, offer YouTube setup separately from trailer playback when the installed YouTube 7.4.4 add-on still needs to migrate its settings.
 - Offer the official trailer in the browser while YouTube setup is pending.
