@@ -111,14 +111,13 @@ class Worker:
         try:
             client=TMDB(self.addon,self.core)
             if not client.configured:return
-            target=following(client,*episode,watched=Viewing(self.addon).watched_keys())
+            following(client,*episode,watched=Viewing(self.addon).watched_keys())
         except (CatalogueError,ProgressError):
             return
-        if target:
-            invalidate('continue')
-            path=xbmc.getInfoLabel('Container.FolderPath')
-            if path.startswith('plugin://plugin.video.mdm.flix/') and 'action=next_episodes' in path:
-                xbmc.executebuiltin('Container.Refresh')
+        invalidate('continue')
+        path=xbmc.getInfoLabel('Container.FolderPath')
+        if path.startswith('plugin://plugin.video.mdm.flix/') and 'action=next_episodes' in path:
+            xbmc.executebuiltin('Container.Refresh')
 
     def tick(self):
         now = time.monotonic()

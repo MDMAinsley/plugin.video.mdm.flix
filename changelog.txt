@@ -1,3 +1,6 @@
+0.17.25
+- Refresh Next Episodes when a metadata lookup confirms the series has no next episode.
+
 0.17.24
 - Add compact Skip Intro and credits prompts with a 10-second automatic next episode option.
 - Check whether the viewer is still watching after five automatic starts.
