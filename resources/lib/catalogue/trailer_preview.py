@@ -132,6 +132,12 @@ class HomePreview:
         except RuntimeError:
             return False
 
+    def playback_has_started(self):
+        try:
+            return self.player.isPlaying() and self.player.getTime() > 0
+        except RuntimeError:
+            return False
+
     def release(self):
         self.window.clearProperty(ACTIVE)
         self.window.clearProperty(FULLSCREEN)
@@ -152,7 +158,7 @@ class HomePreview:
             xbmc.executebuiltin('PlayerControl(Stop)')
             self.release()
             return False
-        if self.started or self.player.isPlaying() or monotonic() >= self.deadline:
+        if self.started or self.playback_has_started() or monotonic() >= self.deadline:
             self.cancelled_paths.append(self.path)
             self.release()
             return True
@@ -171,10 +177,7 @@ class HomePreview:
             if self.cancelled:
                 self.interrupt()
             elif self.owns_playback():
-                try:
-                    self.started = self.player.getTime() > 0
-                except RuntimeError:
-                    self.started = False
+                self.started = self.started or self.playback_has_started()
                 if not self.started:
                     if now >= self.deadline:
                         self.interrupt()
@@ -183,7 +186,7 @@ class HomePreview:
                     xbmc.executebuiltin('Action(FullScreen)')
                 else:
                     self.window.setProperty(ACTIVE, self.token)
-            elif self.started or self.player.isPlaying() or now >= self.deadline:
+            elif self.started or self.playback_has_started() or now >= self.deadline:
                 self.interrupt()
         elif self.player.isPlayingVideo() and self.playing_path() in self.cancelled_paths:
             xbmc.executebuiltin('PlayerControl(Stop)')
