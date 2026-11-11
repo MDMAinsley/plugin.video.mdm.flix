@@ -17,6 +17,8 @@ ACTIVE = 'mdm_preview_active'
 FULLSCREEN = 'mdm_preview_fullscreen'
 DELAY = 5
 START_TIMEOUT = 12
+# Kodi's cancellable and non-cancellable player busy windows.
+PLAYER_BUSY_DIALOGS = (10138, 10160)
 
 
 def request_fullscreen():
@@ -61,23 +63,28 @@ class HomePreview:
     def focused_title(self):
         if (self.core is None or self.window.getProperty(ENABLED) != 'true'
                 or self.addon.getSetting('device_home_previews') == 'false'
-                or not xbmc.getCondVisibility('Window.IsActive(home)')):
+                or xbmcgui.getCurrentWindowId() != 10000):
             return None
+        if self.path and xbmcgui.getCurrentWindowDialogId() in PLAYER_BUSY_DIALOGS:
+            # Kodi evaluates rail labels in the dialog context while resolving
+            # video. Recheck the actual Home card once that dialog goes away.
+            return self.focus
         if xbmc.getCondVisibility(trailers.BUSY):
-            # The preview resolver itself may temporarily show Kodi's busy dialog.
-            if not self.path or not xbmc.getCondVisibility(
-                    'Window.IsActive(busydialog) | Window.IsActive(busydialognocancel) | Window.IsActive(progressdialog)'):
-                return None
-        for rail in trailers.HOME_RAILS:
-            if xbmc.getCondVisibility(f'Control.HasFocus({rail})'):
-                path = urlsplit(xbmc.getInfoLabel(f'Container({rail}).ListItem.Property(mdm_home_title)'))
-                params = parse_qs(path.query)
-                if path.netloc != 'plugin.video.mdm.flix' or params.get('action') != ['home_title']:
-                    return None
-                media = params.get('media_type', [''])[0]
-                identifier = params.get('tmdb_id', [''])[0]
-                if media in ('movie', 'episode', 'tv') and identifier.isdecimal():
-                    return rail, path.query, 'movie' if media == 'movie' else 'tv', int(identifier)
+            return None
+        try:
+            rail = self.window.getFocusId()
+        except RuntimeError:
+            return None
+        if rail not in trailers.HOME_RAILS:
+            return None
+        path = urlsplit(xbmc.getInfoLabel(f'Container({rail}).ListItem.Property(mdm_home_title)'))
+        params = parse_qs(path.query)
+        if path.netloc != 'plugin.video.mdm.flix' or params.get('action') != ['home_title']:
+            return None
+        media = params.get('media_type', [''])[0]
+        identifier = params.get('tmdb_id', [''])[0]
+        if media in ('movie', 'episode', 'tv') and identifier.isdecimal():
+            return rail, path.query, 'movie' if media == 'movie' else 'tv', int(identifier)
         return None
 
     def load(self, focus):
@@ -184,8 +191,8 @@ class HomePreview:
                 elif xbmc.getCondVisibility(trailers.BUSY):
                     self.window.clearProperty(ACTIVE)
                 elif self.window.getProperty(FULLSCREEN) == self.token:
+                    xbmc.executebuiltin('Action(FullScreen)', True)
                     self.release()
-                    xbmc.executebuiltin('Action(FullScreen)')
                 else:
                     self.window.setProperty(ACTIVE, self.token)
             elif self.started or self.playback_has_started() or now >= self.deadline:
