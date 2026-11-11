@@ -1,3 +1,6 @@
+0.17.23
+- Retry opening the Fire TV keyboard through the Kodi activity handoff until Fire OS confirms it is visible.
+
 0.17.22
 - Open the Fire TV keyboard when the editor is ready and preserve Back dismissal.
 
