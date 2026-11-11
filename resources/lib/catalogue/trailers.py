@@ -1,7 +1,9 @@
 """On-demand title trailers, separate from feature playback and tracking."""
 import json
 import re
-from urllib.parse import urlencode
+import time
+from collections import deque
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 import xbmc
 import xbmcgui
@@ -12,6 +14,10 @@ from resources.lib.metadata.listitem import create_playable_item
 
 YOUTUBE = 'plugin.video.youtube'
 VIDEO_KEY = re.compile(r'[A-Za-z0-9_-]{11}')
+REQUEST_ID = re.compile(r'[0-9a-f]{32}')
+PLAY_REQUEST = 'mdm.flix.trailer.play_request'
+FLIX = 'plugin.video.mdm.flix'
+BUSY = 'Container.IsUpdating | Window.IsActive(progressdialog) | Window.IsActive(busydialog) | Window.IsActive(busydialognocancel)'
 
 
 def candidates(data, identifier, language):
@@ -105,3 +111,56 @@ def show(nav, addon, core, params):
         xbmcgui.Dialog().notification('Watch Trailer', 'The trailer listing could not be loaded.')
     finally:
         nav.end('videos', cache=False)
+
+    # Publish only after Kodi has received the regular playable list item.
+    request = params.get('trailer_request', '')
+    if REQUEST_ID.fullmatch(request):
+        xbmcgui.Window(10000).setProperty(PLAY_REQUEST, json.dumps({
+            'id': request, 'key': video['key'], 'expires': time.monotonic() + 8,
+        }))
+
+
+class TrailerPlayback:
+    """Start an explicit request once the matching Kodi video list is stable."""
+
+    def __init__(self):
+        self.window = xbmcgui.Window(10000)
+        self.finished = deque(maxlen=32)
+        self.visible = None
+        self.settled = False
+
+    def tick(self):
+        try:
+            request = json.loads(self.window.getProperty(PLAY_REQUEST))
+            token, key, expires = request['id'], request['key'], request['expires']
+            if not REQUEST_ID.fullmatch(token) or not VIDEO_KEY.fullmatch(key):
+                return
+            if token in self.finished:
+                return
+            path = urlsplit(xbmc.getInfoLabel('Container.FolderPath'))
+            params = parse_qs(path.query)
+            matching = (path.scheme == 'plugin' and path.netloc == FLIX
+                        and params.get('action') == ['trailer_play']
+                        and params.get('trailer_request') == [token]
+                        and xbmc.getCondVisibility('Window.IsActive(videos)'))
+            if (time.monotonic() >= expires or xbmc.getCondVisibility('Player.HasMedia')
+                    or (self.visible == token and not matching)):
+                self.finished.append(token)
+                return
+            if not matching:
+                return
+            if self.visible != token:
+                self.visible, self.settled = token, False
+            if xbmc.getCondVisibility(BUSY):
+                self.settled = False
+                return
+            if not self.settled:
+                self.settled = True
+                return
+            self.finished.append(token)
+            url = 'plugin://plugin.video.youtube/play/?' + urlencode({'video_id': key, 'incognito': 'true'})
+            # The list remains available for a manual retry if Kodi refuses playback.
+            xbmc.executeJSONRPC(json.dumps(dict(jsonrpc='2.0', id=1, method='Player.Open',
+                                               params=dict(item=dict(file=url), options=dict(resume=False)))))
+        except (ValueError, TypeError, KeyError, RuntimeError):
+            return

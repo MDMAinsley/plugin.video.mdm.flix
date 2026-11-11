@@ -165,9 +165,12 @@ def run(addon):
     resume_worker=start_resume_sync(addon,monitor,observer.boot_id)
     from resources.lib.catalogue.artwork_recovery import start as start_artwork
     artwork_worker=start_artwork(addon,monitor)
+    from resources.lib.catalogue.trailers import TrailerPlayback
+    trailer_playback = TrailerPlayback()
     try:
         while not monitor.waitForAbort(1):
             observer.tick();controls.tick()
+            trailer_playback.tick()
     finally:
         try:
             try:

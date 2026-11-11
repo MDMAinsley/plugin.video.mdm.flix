@@ -1,3 +1,6 @@
+0.17.16
+- Start an explicitly requested trailer once its Kodi video list is ready.
+
 0.17.15
 - Play official trailers as ordinary Kodi video items after the title lookup has finished.
 - Restore in-Kodi trailer playback on Windows.
