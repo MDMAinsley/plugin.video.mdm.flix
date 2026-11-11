@@ -1,3 +1,6 @@
+0.17.22
+- Open the Fire TV keyboard when the editor is ready and preserve Back dismissal.
+
 0.17.21
 - Offer MDM Flix Search helper 1.4, which waits for the Android editor before opening the keyboard.
 - Allow updating the installed voice search helper from Device tuning.

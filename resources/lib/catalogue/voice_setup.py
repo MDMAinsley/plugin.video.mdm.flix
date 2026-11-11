@@ -8,7 +8,7 @@ from resources.lib.catalogue.android_search import HELPER
 DOWNLOADER = 'com.esaba.downloader'
 AMAZON_STORE = 'com.amazon.venezia'
 DOWNLOAD_URL = ('https://raw.githubusercontent.com/MDMAinsley/plugin.video.mdm.flix/main/'
-                'resources/android/mdm-flix-search-1.4.apk')
+                'resources/android/mdm-flix-search-1.5.apk')
 ACTION = 'RunPlugin(plugin://plugin.video.mdm.flix/?action=voice_search_setup&automatic=1)'
 TITLE = 'MDM Flix Voice Search'
 OFFERED = 'MDM.Flix.VoiceSetupOffered'
