@@ -12,8 +12,9 @@ from resources.lib import device_policy
 from resources.lib.home_rows import invalidate
 
 
-SLOTS = ('continue', 'my_list', 'progress', 'movie', 'tv')
+SLOTS = ('continue', 'next', 'my_list', 'progress', 'movie', 'tv')
 PROPERTY = 'mdm_artwork_requests_'
+NEXT_PROPERTY = 'mdm_next_episode_requests'
 IMAGE = re.compile(r'https://image\.tmdb\.org/t/p/[A-Za-z0-9_-]+(/[A-Za-z0-9._-]{1,200})')
 
 
@@ -56,6 +57,20 @@ def request(slot, identities):
         xbmcgui.Window(10000).setProperty(PROPERTY + slot, json.dumps(values))
 
 
+def request_next(episodes):
+    xbmcgui.Window(10000).setProperty(NEXT_PROPERTY,json.dumps(list(dict.fromkeys(episodes))[:12]))
+
+
+def pending_next():
+    raw=xbmcgui.Window(10000).getProperty(NEXT_PROPERTY)
+    try:
+        values=json.loads(raw) if raw and len(raw)<=2048 else []
+        return [(number(row[0],1),number(row[1],1),number(row[2],1))
+                for row in values[:12] if isinstance(row,list) and len(row)==3]
+    except (ValueError,TypeError,CatalogueError):
+        return []
+
+
 def pending():
     result = []
     window = xbmcgui.Window(10000)
@@ -81,6 +96,29 @@ class Worker:
     def __init__(self, addon, core):
         self.addon, self.core = addon, core
         self.due = {}
+        self.next_due = {}
+
+    def warm_next(self):
+        from resources.lib.playback.episode_ui import following
+        from resources.lib.playback.progress import ProgressError
+        from resources.lib.playback.viewing import Viewing
+        now=time.monotonic()
+        episodes=pending_next()
+        self.next_due={item:due for item,due in self.next_due.items() if item in episodes}
+        episode=next((item for item in episodes if self.next_due.get(item,0)<=now),None)
+        if not episode:return
+        self.next_due[episode]=now+300
+        try:
+            client=TMDB(self.addon,self.core)
+            if not client.configured:return
+            target=following(client,*episode,watched=Viewing(self.addon).watched_keys())
+        except (CatalogueError,ProgressError):
+            return
+        if target:
+            invalidate('continue')
+            path=xbmc.getInfoLabel('Container.FolderPath')
+            if path.startswith('plugin://plugin.video.mdm.flix/') and 'action=next_episodes' in path:
+                xbmc.executebuiltin('Container.Refresh')
 
     def tick(self):
         now = time.monotonic()
@@ -130,6 +168,7 @@ def start(addon, monitor):
             if xbmc.getCondVisibility('Window.IsActive(fullscreenvideo)'):
                 continue
             try:
+                worker.warm_next()
                 worker.tick()
             except (RuntimeError, OSError, ValueError, TypeError):
                 continue

@@ -14,15 +14,15 @@ PROPERTY='mdm.flix.progress'
 _source=ContextVar('mdm_flix_source',default=None)
 
 @contextmanager
-def source(row,addon):
-    token=_source.set((row,addon))
+def source(row,addon,episode_chain=None):
+    token=_source.set((row,addon,episode_chain))
     try:yield
     finally:_source.reset(token)
 
 def stamp(listitem):
     current=_source.get()
     if not current:return
-    row,addon=current
+    row,addon,episode_chain=current
     if addon.getSetting('progress_enabled')=='false' and not any(addon.getSetting(name)=='true' for name in ('episode_next_enabled','episode_intro_enabled')):return
     try:
         item=clean(row.get('extra',{}).get('item'))
@@ -40,6 +40,8 @@ def stamp(listitem):
         if choice<0:raise Cancelled('Resume cancelled.')
         if choice==0:resume=position
     payload=dict(schema=1,token=uuid.uuid4().hex,created=int(time.time()),item=item,resume=resume)
+    if isinstance(episode_chain,str) and re.fullmatch('[0-9a-f]{32}',episode_chain):
+        payload['episode_chain']=episode_chain
     from resources.lib.playback.chapter_facts import fingerprint
     chapter_key=fingerprint(row)
     if chapter_key:payload['chapter_key']=chapter_key
@@ -59,6 +61,9 @@ def read(listitem):
         if type(created) is not int or not 0<=now-created<=300:return None
         resume=seconds(resume)
         result=dict(token=value['token'],item=clean(value.get('item')),resume=resume)
+        episode_chain=value.get('episode_chain')
+        if isinstance(episode_chain,str) and re.fullmatch('[0-9a-f]{32}',episode_chain):
+            result['episode_chain']=episode_chain
         chapter_key=value.get('chapter_key')
         if isinstance(chapter_key,str) and re.fullmatch('[0-9a-f]{64}',chapter_key):result['chapter_key']=chapter_key
         from resources.lib.playback.timing_rules import clean_identity

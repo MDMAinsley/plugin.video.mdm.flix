@@ -38,6 +38,7 @@ def configuration(addon,preset=None):
     preset=preset or {}
     return dict(enabled=preset.get('enabled',enabled(addon,'episode_new_shows')),
                 next_enabled=enabled(addon,'episode_next_enabled'),
+                next_autoplay=enabled(addon,'episode_next_autoplay'),
                 next_mode=addon.getSetting('episode_next_mode') or 'Chapters',
                 percent=bounded_setting(addon,'episode_next_percent',95,50,99),
                 remaining=bounded_setting(addon,'episode_next_seconds',60,5,600),

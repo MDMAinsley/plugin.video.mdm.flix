@@ -11,21 +11,26 @@ def title_link(**identity):
     return {'mdm_home_title': 'plugin://plugin.video.mdm.flix/?' + urlencode(dict(identity, action='home_title'))}
 
 
-def show_continue(nav, addon, core):
+def show_continue(nav, addon, core, row_kind='resume'):
     from resources.lib.playback.progress import ProgressError
     from resources.lib.playback.progress_ui import continuation_label, continued, identity_params, play_entry, title_metadata
     from resources.lib.playback.viewing import Viewing
 
     pending=[]
+    next_pending=[]
     if addon.getSetting('progress_enabled') != 'false':
         try:
-            for row in continued(Viewing(addon), addon, core, limit=ROW_LIMIT):
+            for row in continued(Viewing(addon), addon, core, limit=ROW_LIMIT,row_kind=row_kind,pending=next_pending):
                 item = row['item']
-                play_entry(nav, addon, continuation_label(row), item, 'resume', properties=title_link(**identity_params(item)),
+                label = continuation_label(row).removesuffix(' · Next episode') if row_kind=='next' else continuation_label(row)
+                play_entry(nav, addon, label, item, 'resume', properties=title_link(**identity_params(item)),
                            **title_metadata(addon, core, item, row, cache_only=True,pending=pending))
         except ProgressError:
             pass
-    request('continue',pending)
+    request('next' if row_kind=='next' else 'continue',pending)
+    if row_kind=='next':
+        from resources.lib.catalogue.artwork_recovery import request_next
+        request_next(next_pending)
     nav.end('videos', cache=False)
 
 
@@ -51,6 +56,8 @@ def show(nav, addon, core, params):
     row = params.get('row')
     if row == 'continue':
         return show_continue(nav, addon, core)
+    if row == 'next':
+        return show_continue(nav, addon, core, 'next')
     if row == 'my_list':
         return show_home_list(nav, addon, core)
 

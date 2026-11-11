@@ -153,8 +153,10 @@ def run(addon):
     profile=addon.getAddonInfo('profile')
     clear_sources(profile)
     observer=Observer(addon);monitor=xbmc.Monitor()
+    from resources.lib.bootstrap import _load_core
+    core=_load_core()
     from resources.lib.playback.episode_controls import Controls
-    controls=Controls(addon)
+    controls=Controls(addon,core=core)
     from resources.lib.playback.timing_service import start
     timing_worker=start(addon,monitor)
     from resources.lib.playback.contributions import start as start_sharing
@@ -167,9 +169,8 @@ def run(addon):
     artwork_worker=start_artwork(addon,monitor)
     from resources.lib.catalogue.trailers import TrailerPlayback
     from resources.lib.catalogue.trailer_preview import HomePreview
-    from resources.lib.bootstrap import _load_core
     trailer_playback = TrailerPlayback()
-    preview = HomePreview(addon, _load_core())
+    preview = HomePreview(addon,core)
     from resources.lib.catalogue.voice_setup import WatchSetting
     voice_setup = WatchSetting(addon)
     next_observation = time.monotonic()

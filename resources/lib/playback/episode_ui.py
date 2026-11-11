@@ -22,7 +22,7 @@ def settings(nav,addon):
 def setup(addon,core,params):
     try:
         if params.get('action')=='episode_help':
-            xbmcgui.Dialog().ok('Episode controls','Hold/menu on a show or episode and choose Episode controls. Save an intro start/end once for that show. All its episodes use that preset; chapters take priority in Chapters mode. Disable the show if its timing changes. The new-shows toggle controls shows without a saved preset. Next episode never starts unless you press the button.');return
+            xbmcgui.Dialog().ok('Episode controls','Hold/menu on a show or episode and choose Episode controls to save an intro range. At the end of an episode, choose Watch Credits to cancel the next-episode countdown. You can turn off automatic next episodes in Settings.');return
         identifier=Presets.identifier(params.get('tmdb_id'));store=Presets(addon);row=store.get(identifier)
         title=row['title'] if row else str(TMDB(addon,core).details('tv',identifier).get('name') or 'TV show')[:200]
         row=row or dict(enabled=configuration(addon)['enabled'],intro_mode='Chapters',start=0,end=0)
@@ -115,12 +115,23 @@ def play_next(addon,core,params):
             watched=Viewing(addon).watched_keys() if addon.getSetting('progress_enabled')!='false' else ()
         except ProgressError:
             watched=()
-        next_item=following(TMDB(addon,core),identifier,season,episode,watched=watched)
+        pending=next_prompt.read()
+        target=pending.get('target') if pending and pending['token']==token else None
+        next_item=(dict(media_type='episode',tmdb_id=identifier,season=number(target['season']),
+                        episode=number(target['episode'],1))
+                   if target and target['tmdb_id']==identifier
+                   else following(TMDB(addon,core),identifier,season,episode,watched=watched))
         if not owned():return
         if not next_item:
             xbmcgui.Dialog().notification('MDM Flix','No next aired episode is available yet.',xbmcgui.NOTIFICATION_INFO,4000);return
-        action='autoplay' if addon.getSetting('playback_mode')=='Autoplay' else 'sources'
-        url='plugin://plugin.video.mdm.flix/?'+urlencode(dict(next_item,action=action))
+        automatic = params.get('next_autoplay') == '1' and configuration(addon)['next_autoplay']
+        action='autoplay' if automatic or addon.getSetting('playback_mode')=='Autoplay' else 'sources'
+        options=dict(next_item,action=action,resume_mode='resume')
+        if automatic:
+            count=number(params.get('chain_count',0),0,next_prompt.CHECK_AFTER)
+            nonce=next_prompt.queue(next_item,count,params.get('unattended')=='1')
+            if nonce:options['episode_chain']=nonce
+        url='plugin://plugin.video.mdm.flix/?'+urlencode(options)
         if player.isPlayingVideo():player.stop()
         if action=='autoplay':xbmc.executebuiltin('PlayMedia('+url+')')
         else:xbmc.executebuiltin('ActivateWindow(Videos,'+url+',return)')

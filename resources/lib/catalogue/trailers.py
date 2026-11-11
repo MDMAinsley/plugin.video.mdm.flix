@@ -16,7 +16,7 @@ VIDEO_KEY = re.compile(r'[A-Za-z0-9_-]{11}')
 REQUEST_ID = re.compile(r'[0-9a-f]{32}')
 PLAY_REQUEST = 'mdm.flix.trailer.play_request'
 BUSY = 'Container.IsUpdating | System.HasActiveModalDialog'
-HOME_RAILS = (5300, 5400, 5100, 5200)
+HOME_RAILS = (5300, 5500, 5400, 5100, 5200)
 
 
 def candidates(data, identifier, language):

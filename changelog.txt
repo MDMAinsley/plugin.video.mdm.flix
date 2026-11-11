@@ -1,3 +1,8 @@
+0.17.24
+- Add compact Skip Intro and credits prompts with a 10-second automatic next episode option.
+- Check whether the viewer is still watching after five automatic starts.
+- Separate Next Episodes from Continue Watching, with one next episode per show.
+
 0.17.23
 - Retry opening the Fire TV keyboard through the Kodi activity handoff until Fire OS confirms it is visible.
 

@@ -21,6 +21,7 @@
     <setting id="episode_feedback_prompt" type="bool" label="Offer a rating after Skip Intro" default="false" />
     <setting type="action" label="Manage local timing feedback" action="RunPlugin(plugin://plugin.video.mdm.flix/?action=timing_feedback&amp;manage=1)" />
     <setting id="episode_next_enabled" type="bool" label="Show Next episode prompt" default="true" />
+    <setting id="episode_next_autoplay" type="bool" label="Automatically play the next episode after 10 seconds" default="true" />
     <setting id="episode_prefer_chapters" type="bool" label="Prefer labelled chapters; use chosen timings as fallback" default="true" />
     <setting id="episode_next_mode" type="select" label="Next episode trigger" values="Chapters|Watch percentage|Seconds from end" default="Chapters" />
     <setting id="episode_next_percent" type="number" label="Watch percentage (50â€“99)" default="95" />

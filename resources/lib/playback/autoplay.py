@@ -68,7 +68,8 @@ def run(nav, addon, core, log, params, search, resolve, play_url, failed):
                 raise PlaybackError('No timing-compatible stream was ready within the comparison limit. Open Timing match report for runtimes/rejections, refresh sources, or choose a source manually.')
             selected,url,match,match_report=chosen
             from resources.lib.playback.tracking import source as tracking_source
-            with tracking_source(selected,addon):play_url(url,selected.get('label','MDM Flix'))
+            with tracking_source(selected,addon,params.get('episode_chain')):
+                play_url(url,selected.get('label','MDM Flix'))
             report['provider'] = selected.get('provider_id')
             handed_off=True;save('handoff')
             if match['score']<70:xbmcgui.Dialog().notification('MDM Flix','Playing an available stream; no intro timing match was established.',xbmcgui.NOTIFICATION_INFO,4000)
@@ -125,7 +126,7 @@ def run(nav, addon, core, log, params, search, resolve, play_url, failed):
                 if monitor.abortRequested():
                     raise Cancelled("Playback cancelled.")
                 from resources.lib.playback.tracking import source as tracking_source
-                with tracking_source(source, addon):
+                with tracking_source(source, addon, params.get('episode_chain')):
                     play_url(url, source.get("label", "MDM Flix"))
                 handed_off = True
                 if not save("handoff"):
@@ -151,4 +152,7 @@ def run(nav, addon, core, log, params, search, resolve, play_url, failed):
         outcome("unexpected", "Autoplay stopped after an unexpected error. Use Source Select or retry; no further source was attempted.")
     finally:
         if not handed_off:
+            if params.get('episode_chain'):
+                from resources.lib.playback.next_prompt import clear_chain
+                clear_chain(params['episode_chain'])
             failed()

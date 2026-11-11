@@ -70,7 +70,7 @@ def label(item):
     return item['title']
 
 
-def continued(viewing, addon, core, *, limit=40, series=None):
+def continued(viewing, addon, core, *, limit=40, series=None, row_kind='combined', pending=None):
     """One unfinished item per series. Offer the next aired episode when known."""
     if addon.getSetting('progress_enabled') == 'false':
         return []
@@ -83,7 +83,7 @@ def continued(viewing, addon, core, *, limit=40, series=None):
         return (-row['updated'], -item.get('season', 0), -item.get('episode', 0), key(item))
 
     records = sorted(viewing.rows(False), key=recent)
-    unfinished, completed, watched = {}, {}, set()
+    unfinished, completed, watched, resumable = {}, {}, set(), set()
     for row in records:
         item = row['item']
         episode = item['media_type'] == 'episode'
@@ -97,8 +97,16 @@ def continued(viewing, addon, core, *, limit=40, series=None):
                     completed.setdefault(group, row)
         elif row['position'] >= 30:
             unfinished.setdefault(group, row)
+            resumable.add(key(item))
 
-    candidates = sorted((completed | unfinished).values(), key=recent)
+    if row_kind=='resume':
+        return sorted(unfinished.values(),key=recent)[:limit]
+    if row_kind=='next':
+        candidates = [row for group,row in completed.items()
+                      if group not in unfinished or recent(row)<recent(unfinished[group])]
+    else:
+        candidates = (completed | unfinished).values()
+    candidates = sorted(candidates,key=recent)
     client = TMDB(addon, core, cache_only=series is None)
     result = []
     checked = 0
@@ -116,6 +124,7 @@ def continued(viewing, addon, core, *, limit=40, series=None):
             next_episode = following(client, item['tmdb_id'], item['season'], item['episode'],
                                      watched=watched, include_metadata=True)
         except CatalogueError:
+            if pending is not None:pending.append((item['tmdb_id'],item['season'],item['episode']))
             continue
         if next_episode:
             identity, raw = next_episode
@@ -125,6 +134,8 @@ def continued(viewing, addon, core, *, limit=40, series=None):
             item = dict(identity, title=title if isinstance(title, str) and title else f"Episode {identity['episode']}",
                         tvshowtitle=item['tvshowtitle'], plot=plot if isinstance(plot, str) else '',
                         artwork=dict(item['artwork'], **images))
+            if row_kind=='next' and key(item) in resumable:
+                continue
             result.append(dict(row, item=item, watched=False, position=0, duration=0, up_next=True))
     return result
 
@@ -135,19 +146,26 @@ def continuation_label(row):
 def show(nav,addon,core,params):
     try:
         store=Viewing(addon)
-        if params.get('action') in ('continue_watching','viewing_history'):
-            continuing=params['action']=='continue_watching'
-            rows=continued(store,addon,core) if continuing else store.rows(False)
+        if params.get('action') in ('continue_watching','next_episodes','viewing_history'):
+            row_kind={'continue_watching':'resume','next_episodes':'next'}.get(params['action'])
+            next_pending=[]
+            rows=continued(store,addon,core,row_kind=row_kind,pending=next_pending) if row_kind else store.rows(False)
             pending=[]
             for row in rows:
                 item=row['item']
-                text=continuation_label(row) if continuing or not row['watched'] else label(item)+' · Watched'
+                text=continuation_label(row) if row_kind or not row['watched'] else label(item)+' · Watched'
                 nav.add_folder(text,'progress_details',params=identity_params(item),
                                **title_metadata(addon,core,item,row,cache_only=True,pending=pending))
-            from resources.lib.catalogue.artwork_recovery import request
+            from resources.lib.catalogue.artwork_recovery import request,request_next
             request('progress',pending)
-            if not rows:nav.add_action('Nothing here yet — progress appears after watching for at least 30 seconds.','progress_help')
-            nav.end('videos');return
+            if row_kind=='next':
+                request_next(next_pending)
+                if not rows:nav.add_action('Loading next episodes…' if next_pending else 'Finish an episode to see what’s next.','progress_help')
+            elif not rows:
+                nav.add_action('Nothing here yet — progress appears after watching for at least 30 seconds.','progress_help')
+            if row_kind:nav.end('videos',cache=False)
+            else:nav.end('videos')
+            return
         item=title_identity(params)
         show_level=item['media_type']=='tv'
         row=None if show_level else store.get(item)

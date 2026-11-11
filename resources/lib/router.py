@@ -125,7 +125,7 @@ class Router:
             show(nav, self.addon, self.core, self.params)
             return
 
-        elif action in ("continue_watching", "viewing_history", "progress_details"):
+        elif action in ("continue_watching", "next_episodes", "viewing_history", "progress_details"):
             from resources.lib.playback.progress_ui import show
             show(nav, self.addon, self.core, self.params)
 
