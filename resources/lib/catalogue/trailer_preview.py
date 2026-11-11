@@ -19,6 +19,7 @@ DELAY = 5
 START_TIMEOUT = 12
 # Kodi's cancellable and non-cancellable player busy windows.
 PLAYER_BUSY_DIALOGS = (10138, 10160)
+NO_MODAL_DIALOG = 9999
 
 
 def request_fullscreen():
@@ -65,11 +66,14 @@ class HomePreview:
                 or self.addon.getSetting('device_home_previews') == 'false'
                 or xbmcgui.getCurrentWindowId() != 10000):
             return None
-        if self.path and xbmcgui.getCurrentWindowDialogId() in PLAYER_BUSY_DIALOGS:
+        dialog = xbmcgui.getCurrentWindowDialogId()
+        modal = xbmc.getCondVisibility('System.HasActiveModalDialog')
+        if self.path and (dialog in PLAYER_BUSY_DIALOGS or (dialog == NO_MODAL_DIALOG and modal)):
             # Kodi evaluates rail labels in the dialog context while resolving
-            # video. Recheck the actual Home card once that dialog goes away.
+            # video. The modal flag can also change before Kodi exposes its ID.
+            # Recheck the actual Home card once that dialog goes away.
             return self.focus
-        if xbmc.getCondVisibility(trailers.BUSY):
+        if modal:
             return None
         try:
             rail = self.window.getFocusId()
