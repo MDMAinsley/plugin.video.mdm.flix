@@ -175,6 +175,10 @@ class Router:
             from resources.lib.menus.tvshows import show
             show(nav)
 
+        elif action == "voice_search_setup":
+            from resources.lib.catalogue.voice_setup import offer
+            offer(self.addon, automatic=self.params.get("automatic") == "1")
+
         elif action == ACTION_SEARCH:
             from resources.lib.catalogue.browse import show
             show(nav, self.addon, self.core, dict(self.params, action="search_all"))

@@ -1,3 +1,7 @@
+0.17.20
+- Ask for a new query every time Search is opened.
+- Offer the Android voice search helper download when voice search is enabled.
+
 0.17.19
 - Add optional Android keyboard dictation through the MDM search helper.
 

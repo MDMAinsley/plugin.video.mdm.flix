@@ -170,6 +170,8 @@ def run(addon):
     from resources.lib.bootstrap import _load_core
     trailer_playback = TrailerPlayback()
     preview = HomePreview(addon, _load_core())
+    from resources.lib.catalogue.voice_setup import WatchSetting
+    voice_setup = WatchSetting(addon)
     next_observation = time.monotonic()
     try:
         while not monitor.waitForAbort(0.25):
@@ -178,6 +180,7 @@ def run(addon):
             if now >= next_observation:
                 observer.tick();controls.tick()
                 trailer_playback.tick(preview)
+                voice_setup.tick()
                 next_observation = now + 1
     finally:
         try:

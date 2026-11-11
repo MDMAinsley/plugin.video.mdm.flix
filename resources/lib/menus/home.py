@@ -9,7 +9,7 @@ from resources.lib.constants import (
 def show(nav):
     nav.add_folder("Movies", ACTION_MOVIES)
     nav.add_folder("TV Shows", ACTION_TVSHOWS)
-    nav.add_folder("Search", ACTION_SEARCH)
+    nav.add_folder("Search", ACTION_SEARCH, params={"input": 1})
     nav.add_folder("Continue Watching", "continue_watching")
     nav.add_folder("My List", "library_view", params={"list_id": 1})
     nav.add_folder("My Library / Lists", "library_home")

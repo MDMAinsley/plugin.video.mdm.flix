@@ -69,16 +69,18 @@ def show(nav, addon, core, params):
     except CatalogueError as failure:
         xbmcgui.Dialog().ok("MDM Flix", str(failure))
         nav.add_action("Open TMDB settings", "open_settings")
-        nav.end()
+        interactive = action in ("search_all", "search_movies", "search_tv") and not params.get("query")
+        nav.end(cache=not interactive)
 
 
 def listing(nav, client, action, params):
     media, kind = LIST_ROUTES[action]
     query = params.get("query", "")
-    if kind == "search" and not query:
+    interactive = kind == "search" and not query
+    if interactive:
         query = prompt(client.addon, "Search Movies" if media == "movie" else "Search TV Shows")
         if not query:
-            nav.end("movies" if media == "movie" else "tvshows")
+            nav.end("movies" if media == "movie" else "tvshows", cache=False)
             return
     page = number(params.get("page", 1), 1, 500)
     data = client.listing(media, kind, page, query)
@@ -102,15 +104,16 @@ def listing(nav, client, action, params):
     if page < total:
         nav.add_folder("Next page ({})".format(page + 1), action,
                        params={"page": page + 1, "query": query})
-    nav.end("movies" if media == "movie" else "tvshows")
+    nav.end("movies" if media == "movie" else "tvshows", cache=not interactive)
 
 
 def mixed_search(nav, client, params):
     query = params.get("query", "")
-    if not query:
+    interactive = not query
+    if interactive:
         query = prompt(client.addon, "Search films and TV")
         if not query:
-            nav.end("videos")
+            nav.end("videos", cache=False)
             return
     page = number(params.get("page", 1), 1, 500)
     data = client.search_all(query, page)
@@ -135,7 +138,7 @@ def mixed_search(nav, client, params):
     total = min(total, 500) if type(total) is int and total > 0 else 1
     if page < total:
         nav.add_folder("Next page ({})".format(page + 1), "search_all", params={"page": page + 1, "query": query})
-    nav.end("videos")
+    nav.end("videos", cache=not interactive)
 
 
 def seasons(nav, client, params):
