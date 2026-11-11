@@ -1,3 +1,6 @@
+0.17.19
+- Add optional Android keyboard dictation through the MDM search helper.
+
 0.17.18
 - Keep the focused Home trailer through Kodi's playback startup dialogs.
 - Hand the existing preview to fullscreen and restore audio.

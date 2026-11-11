@@ -1,7 +1,7 @@
-import xbmc
 from resources.lib import device_policy
 import xbmcgui
 
+from resources.lib.catalogue.android_search import prompt
 from resources.lib.catalogue.tmdb import TMDB, CatalogueError, number
 from resources.lib.metadata.infolabels import build_video_info
 
@@ -76,12 +76,10 @@ def listing(nav, client, action, params):
     media, kind = LIST_ROUTES[action]
     query = params.get("query", "")
     if kind == "search" and not query:
-        keyboard = xbmc.Keyboard("", "Search Movies" if media == "movie" else "Search TV Shows")
-        keyboard.doModal()
-        if not keyboard.isConfirmed() or not keyboard.getText().strip():
+        query = prompt(client.addon, "Search Movies" if media == "movie" else "Search TV Shows")
+        if not query:
             nav.end("movies" if media == "movie" else "tvshows")
             return
-        query = keyboard.getText().strip()
     page = number(params.get("page", 1), 1, 500)
     data = client.listing(media, kind, page, query)
     count = 0
@@ -110,12 +108,10 @@ def listing(nav, client, action, params):
 def mixed_search(nav, client, params):
     query = params.get("query", "")
     if not query:
-        keyboard = xbmc.Keyboard("", "Search films and TV")
-        keyboard.doModal()
-        if not keyboard.isConfirmed() or not keyboard.getText().strip():
+        query = prompt(client.addon, "Search films and TV")
+        if not query:
             nav.end("videos")
             return
-        query = keyboard.getText().strip()
     page = number(params.get("page", 1), 1, 500)
     data = client.search_all(query, page)
     from resources.lib.catalogue.cards import add_title
