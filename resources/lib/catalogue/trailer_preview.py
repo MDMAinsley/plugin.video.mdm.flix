@@ -65,7 +65,7 @@ class HomePreview:
             return None
         if xbmc.getCondVisibility(trailers.BUSY):
             # The preview resolver itself may temporarily show Kodi's busy dialog.
-            if not self.path or self.started or not xbmc.getCondVisibility(
+            if not self.path or not xbmc.getCondVisibility(
                     'Window.IsActive(busydialog) | Window.IsActive(busydialognocancel) | Window.IsActive(progressdialog)'):
                 return None
         for rail in trailers.HOME_RAILS:
@@ -181,6 +181,8 @@ class HomePreview:
                 if not self.started:
                     if now >= self.deadline:
                         self.interrupt()
+                elif xbmc.getCondVisibility(trailers.BUSY):
+                    self.window.clearProperty(ACTIVE)
                 elif self.window.getProperty(FULLSCREEN) == self.token:
                     self.release()
                     xbmc.executebuiltin('Action(FullScreen)')
