@@ -3,21 +3,20 @@ import json
 import re
 import time
 from collections import deque
-from urllib.parse import parse_qs, urlencode, urlsplit
+from urllib.parse import urlencode
+from uuid import uuid4
 
 import xbmc
 import xbmcgui
-import xbmcplugin
 
 from resources.lib.catalogue.tmdb import TMDB, CatalogueError, number
-from resources.lib.metadata.listitem import create_playable_item
 
 YOUTUBE = 'plugin.video.youtube'
 VIDEO_KEY = re.compile(r'[A-Za-z0-9_-]{11}')
 REQUEST_ID = re.compile(r'[0-9a-f]{32}')
 PLAY_REQUEST = 'mdm.flix.trailer.play_request'
-FLIX = 'plugin.video.mdm.flix'
-BUSY = 'Container.IsUpdating | Window.IsActive(progressdialog) | Window.IsActive(busydialog) | Window.IsActive(busydialognocancel)'
+BUSY = 'Container.IsUpdating | System.HasActiveModalDialog'
+HOME_RAILS = (5300, 5400, 5100, 5200)
 
 
 def candidates(data, identifier, language):
@@ -84,12 +83,33 @@ def ready():
     return False
 
 
+def video_url(key, **params):
+    return 'plugin://plugin.video.youtube/play/?' + urlencode(dict(video_id=key, incognito='true', **params))
+
+
+def view_context():
+    window_id = xbmcgui.getCurrentWindowId()
+    if window_id == 10000:
+        for rail in HOME_RAILS:
+            if xbmc.getCondVisibility(f'Control.HasFocus({rail})'):
+                return [window_id, rail, xbmc.getInfoLabel(f'Container({rail}).ListItem.Property(mdm_home_title)')]
+    return [window_id, xbmc.getInfoLabel('Container.FolderPath')]
+
+
+def pending_request(window):
+    try:
+        return json.loads(window.getProperty(PLAY_REQUEST))['expires'] > time.monotonic()
+    except (ValueError, TypeError, KeyError):
+        return False
+
+
 def show(nav, addon, core, params):
-    """List a native video item after the title dialog and lookup have finished."""
+    """Queue playback while keeping the originating Kodi window visible."""
     from resources.lib.playback.progress_ui import title_identity
     from resources.lib.playback.progress import ProgressError
 
-    nav.category('Trailers')
+    context = view_context()
+    dialog = xbmcgui.Dialog()
     try:
         item = title_identity(params)
         media = 'movie' if item['media_type'] == 'movie' else 'tv'
@@ -98,38 +118,29 @@ def show(nav, addon, core, params):
         if monitor.abortRequested():
             return
         if video is None:
-            xbmcgui.Dialog().notification('Watch Trailer', 'No official trailer is listed for this title.')
+            dialog.notification('Watch Trailer', 'No official trailer is listed for this title.')
             return
-        if youtube_state() is not True:
-            nav.add_action('Set up YouTube to play trailers', 'trailer_setup')
+        if not ready() or context != view_context():
             return
-        url = 'plugin://plugin.video.youtube/play/?' + urlencode({'video_id': video['key'], 'incognito': 'true'})
-        label = 'Play official series trailer' if item['media_type'] == 'episode' else 'Play official trailer'
-        xbmcplugin.addDirectoryItem(handle=nav.handle, url=url,
-                                    listitem=create_playable_item(label), isFolder=False)
     except (CatalogueError, ProgressError):
-        xbmcgui.Dialog().notification('Watch Trailer', 'The trailer listing could not be loaded.')
-    finally:
-        nav.end('videos', cache=False)
-
-    # Publish only after Kodi has received the regular playable list item.
-    request = params.get('trailer_request', '')
-    if REQUEST_ID.fullmatch(request):
-        xbmcgui.Window(10000).setProperty(PLAY_REQUEST, json.dumps({
-            'id': request, 'key': video['key'], 'expires': time.monotonic() + 8,
-        }))
+        dialog.notification('Watch Trailer', 'The trailer listing could not be loaded.')
+        return
+    xbmcgui.Window(10000).setProperty(PLAY_REQUEST, json.dumps({
+        'id': uuid4().hex, 'key': video['key'], 'expires': time.monotonic() + 8,
+        'context': context,
+    }))
 
 
 class TrailerPlayback:
-    """Start an explicit request once the matching Kodi video list is stable."""
+    """Start an explicit request after the originating window settles."""
 
     def __init__(self):
         self.window = xbmcgui.Window(10000)
         self.finished = deque(maxlen=32)
-        self.visible = None
+        self.pending = None
         self.settled = False
 
-    def tick(self):
+    def tick(self, preview=None):
         try:
             request = json.loads(self.window.getProperty(PLAY_REQUEST))
             token, key, expires = request['id'], request['key'], request['expires']
@@ -137,30 +148,24 @@ class TrailerPlayback:
                 return
             if token in self.finished:
                 return
-            path = urlsplit(xbmc.getInfoLabel('Container.FolderPath'))
-            params = parse_qs(path.query)
-            matching = (path.scheme == 'plugin' and path.netloc == FLIX
-                        and params.get('action') == ['trailer_play']
-                        and params.get('trailer_request') == [token]
-                        and xbmc.getCondVisibility('Window.IsActive(videos)'))
-            if (time.monotonic() >= expires or xbmc.getCondVisibility('Player.HasMedia')
-                    or (self.visible == token and not matching)):
+            if time.monotonic() >= expires or request['context'] != view_context():
                 self.finished.append(token)
                 return
-            if not matching:
-                return
-            if self.visible != token:
-                self.visible, self.settled = token, False
+            if self.pending != token:
+                self.pending, self.settled = token, False
             if xbmc.getCondVisibility(BUSY):
                 self.settled = False
                 return
             if not self.settled:
                 self.settled = True
                 return
+            if preview is not None and not preview.interrupt():
+                return
             self.finished.append(token)
-            url = 'plugin://plugin.video.youtube/play/?' + urlencode({'video_id': key, 'incognito': 'true'})
-            # The list remains available for a manual retry if Kodi refuses playback.
+            if xbmc.getCondVisibility('Player.HasMedia'):
+                xbmcgui.Dialog().notification('Watch Trailer', 'Stop the current video before playing a trailer.')
+                return
             xbmc.executeJSONRPC(json.dumps(dict(jsonrpc='2.0', id=1, method='Player.Open',
-                                               params=dict(item=dict(file=url), options=dict(resume=False)))))
+                                               params=dict(item=dict(file=video_url(key)), options=dict(resume=False)))))
         except (ValueError, TypeError, KeyError, RuntimeError):
             return

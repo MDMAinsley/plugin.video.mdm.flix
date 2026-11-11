@@ -166,16 +166,27 @@ def run(addon):
     from resources.lib.catalogue.artwork_recovery import start as start_artwork
     artwork_worker=start_artwork(addon,monitor)
     from resources.lib.catalogue.trailers import TrailerPlayback
+    from resources.lib.catalogue.trailer_preview import HomePreview
+    from resources.lib.bootstrap import _load_core
     trailer_playback = TrailerPlayback()
+    preview = HomePreview(addon, _load_core())
+    next_observation = time.monotonic()
     try:
-        while not monitor.waitForAbort(1):
-            observer.tick();controls.tick()
-            trailer_playback.tick()
+        while not monitor.waitForAbort(0.25):
+            preview.tick()
+            now = time.monotonic()
+            if now >= next_observation:
+                observer.tick();controls.tick()
+                trailer_playback.tick(preview)
+                next_observation = now + 1
     finally:
         try:
             try:
-                observer.finish()
+                preview.close()
             finally:
-                controls.close()
+                try:
+                    observer.finish()
+                finally:
+                    controls.close()
         finally:
             clear_sources(profile)

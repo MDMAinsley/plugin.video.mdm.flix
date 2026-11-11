@@ -1,3 +1,7 @@
+0.17.17
+- Play the requested trailer in Kodi without opening a trailer list.
+- Add muted five-second Home previews on capable devices and Up to watch in fullscreen.
+
 0.17.16
 - Start an explicitly requested trailer once its Kodi video list is ready.
 

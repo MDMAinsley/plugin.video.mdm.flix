@@ -58,6 +58,7 @@
     <setting id="device_search_timeout" type="integer" label="Search budget (10-120 seconds)" default="45" />
     <setting id="device_request_timeout" type="integer" label="Request timeout (10-60 seconds)" default="15" />
     <setting id="device_artwork" type="select" label="Catalogue artwork" default="Standard" values="Standard|Light" />
+    <setting id="device_home_previews" type="bool" label="Muted Home trailer previews on capable devices" default="true" />
   </category>
   <category label="Connection / file size">
     <setting id="device_timing_priority" type="select" label="Intro runtime-match priority (known file runtimes only)" values="Off|Tie-breaker|Prefer runtime match" default="Prefer runtime match" />

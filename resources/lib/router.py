@@ -115,10 +115,9 @@ class Router:
             show(nav, self.addon, self.core, self.params)
             return
 
-        elif action == 'trailer_setup':
-            from resources.lib.catalogue.trailers import ready
-            ready()
-            xbmc.executebuiltin('Container.Refresh')
+        elif action == 'trailer_fullscreen':
+            from resources.lib.catalogue.trailer_preview import request_fullscreen
+            request_fullscreen()
             return
 
         elif action == "home_title":
