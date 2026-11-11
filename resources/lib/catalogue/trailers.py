@@ -1,5 +1,6 @@
 """On-demand title trailers, separate from feature playback and tracking."""
 import json
+import os
 import re
 from urllib.parse import urlencode
 
@@ -10,6 +11,9 @@ from resources.lib.catalogue.tmdb import TMDB, CatalogueError, number
 
 YOUTUBE = 'plugin.video.youtube'
 VIDEO_KEY = re.compile(r'[A-Za-z0-9_-]{11}')
+# YouTube 7.4.4(a) upgrades settings when the stored wizard marker predates
+# this timestamp. Run that setup from its own directory, outside playback.
+YOUTUBE_SETUP_MARKER = 1767970800
 
 
 def candidates(data, identifier, language):
@@ -76,6 +80,41 @@ def ready():
     return False
 
 
+def windows_setup_pending():
+    if not xbmc.getCondVisibility('System.Platform.Windows'):
+        return False
+    import xbmcaddon
+
+    youtube = xbmcaddon.Addon(YOUTUBE)
+    if youtube.getAddonInfo('version') not in ('7.4.4', '7.4.4a'):
+        return False
+    marker = youtube.getSetting('kodion.setup_wizard.forced_runs')
+    try:
+        previous_run = int(marker)
+    except (TypeError, ValueError):
+        previous_run = 0
+    return (previous_run < YOUTUBE_SETUP_MARKER
+            or youtube.getSetting('kodion.setup_wizard') == 'true')
+
+
+def offer_setup_or_browser(dialog, video_key):
+    choice = dialog.select(
+        'YouTube setup needed before Kodi playback',
+        ['Watch official trailer in browser', 'Open YouTube in Kodi to finish setup'],
+    )
+    if choice == 0:
+        try:
+            os.startfile('https://www.youtube.com/watch?' + urlencode({'v': video_key}))
+        except OSError:
+            dialog.ok('Watch Trailer', 'Windows could not open your default browser.')
+            return False
+        return True
+    if choice == 1:
+        xbmc.executebuiltin('ActivateWindow(Videos,plugin://plugin.video.youtube/,return)')
+        return True
+    return False
+
+
 def play(addon, core, params):
     """Only an explicit action starts a trailer; no MDM playback token is stamped."""
     from resources.lib.playback.progress_ui import title_identity
@@ -103,6 +142,8 @@ def play(addon, core, params):
             return False
         if not ready() or player.isPlaying():
             return False
+        if windows_setup_pending():
+            return offer_setup_or_browser(dialog, video['key'])
         url = 'plugin://plugin.video.youtube/play/?' + urlencode({'video_id': video['key'], 'incognito': 'true'})
         # Use Kodi's normal playback command for external add-ons. In particular,
         # the YouTube resolver can open setup dialogs while resolving the URL.
