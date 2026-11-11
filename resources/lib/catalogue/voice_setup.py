@@ -8,7 +8,7 @@ from resources.lib.catalogue.android_search import HELPER
 DOWNLOADER = 'com.esaba.downloader'
 AMAZON_STORE = 'com.amazon.venezia'
 DOWNLOAD_URL = ('https://raw.githubusercontent.com/MDMAinsley/plugin.video.mdm.flix/main/'
-                'resources/android/mdm-flix-search-1.3.apk')
+                'resources/android/mdm-flix-search-1.4.apk')
 ACTION = 'RunPlugin(plugin://plugin.video.mdm.flix/?action=voice_search_setup&automatic=1)'
 TITLE = 'MDM Flix Voice Search'
 OFFERED = 'MDM.Flix.VoiceSetupOffered'
@@ -43,12 +43,10 @@ def offer(addon, automatic=False):
         return
     _, packages = xbmcvfs.listdir('androidapp://sources/apps/')
     dialog = xbmcgui.Dialog()
-    if HELPER in packages:
-        if not automatic:
-            dialog.ok(TITLE, 'MDM Flix Search is already installed. Enable Voice Search and open Search to use it.')
+    if automatic and HELPER in packages:
         return
     home.setProperty(OFFERED, '1')
-    if not dialog.yesno(TITLE, 'Download MDM Flix Search to use the remote microphone. '
+    if not dialog.yesno(TITLE, 'Download the latest MDM Flix Search helper to use the remote microphone. '
                         'Approve Install on the device, then return to Kodi.',
                         nolabel='Later', yeslabel='Download now'):
         return
@@ -56,7 +54,7 @@ def offer(addon, automatic=False):
         xbmc.executebuiltin(f'StartAndroidActivity({DOWNLOADER},android.intent.action.VIEW,,downloader://{DOWNLOAD_URL})')
     elif AMAZON_STORE in packages:
         if dialog.yesno(TITLE, 'Install Downloader by AFTVnews from the Amazon Appstore. Then return to '
-                        'Device tuning and select Install MDM Flix Search helper again.',
+                        'Device tuning and select Install or update MDM Flix Search helper again.',
                         nolabel='Later', yeslabel='Open Appstore'):
             xbmc.executebuiltin(f'StartAndroidActivity({AMAZON_STORE},android.intent.action.VIEW,,'
                                 f'amzn://apps/android?p={DOWNLOADER})')

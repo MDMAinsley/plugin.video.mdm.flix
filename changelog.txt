@@ -1,3 +1,7 @@
+0.17.21
+- Offer MDM Flix Search helper 1.4, which waits for the Android editor before opening the keyboard.
+- Allow updating the installed voice search helper from Device tuning.
+
 0.17.20
 - Ask for a new query every time Search is opened.
 - Offer the Android voice search helper download when voice search is enabled.
