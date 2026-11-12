@@ -168,6 +168,7 @@ def show(nav,addon,core,params):
             return
         item=title_identity(params)
         show_level=item['media_type']=='tv'
+        source_target = None if show_level else item
         row=None if show_level else store.get(item)
         at=row['position'] if row else 0
         common=identity_params(item)
@@ -178,6 +179,7 @@ def show(nav,addon,core,params):
             if current:
                 target=current[0]
                 episode=target['item']
+                source_target = episode
                 text='Play next' if target.get('up_next') else 'Resume'
                 play_entry(nav,addon,f"{text} S{episode['season']:02d}E{episode['episode']:02d}",episode,'resume',**metadata)
             nav.add_folder('Episodes','tv_seasons',params=dict(common,progress_labels='1'),**metadata)
@@ -190,6 +192,14 @@ def show(nav,addon,core,params):
                                                                'progress_labels':'1'},**metadata)
         trailer_label = 'Watch Series Trailer' if item['media_type'] == 'episode' else 'Watch Trailer'
         nav.add_action(trailer_label,'trailer_play',params=common,**metadata)
+        if source_target is not None:
+            source_params = identity_params(source_target)
+            if show_level:
+                source_params['resume_mode'] = 'resume'
+            fresh_params = dict(source_params, refresh='1')
+            nav.add_folder('Source Select', 'sources', params=source_params, **metadata)
+            nav.add_folder('Rescrape & Select', 'sources', params=fresh_params, **metadata)
+            nav.add_playable('Rescrape & Auto', 'autoplay', params=fresh_params, **metadata)
         try:
             media='movie' if item['media_type']=='movie' else 'tv'
             saved=any(membership['id']==1 for membership in Library(addon).memberships(media,item['tmdb_id']))

@@ -88,13 +88,14 @@ def search(addon,core,log,params,*,fallback_item=None):
 
 
 def show_sources(nav,addon,core,log,params):
+    cache = params.get('refresh') != '1'
     try:
         # Browsing a list must never queue debrid transfers. Existing metadata
         # still informs sorting; actual preparation starts after selection.
         rows=search(addon,core,log,dict(params))
         if not rows:
             xbmcgui.Dialog().ok('MDM Flix','No sources remain. Check quality, file-size and connection preferences, enabled providers and source mode.')
-            nav.end(); return
+            nav.end(cache=cache); return
         saved=store_sources(rows)
         debrid=sum(bool(s.get('debrid')) for s in saved.values())
         free=len(saved)-debrid
@@ -102,23 +103,23 @@ def show_sources(nav,addon,core,log,params):
             anchor=next(iter(saved))
             for label,group in (('AllDebrid sources ({})'.format(debrid),'debrid'),('Free sources ({})'.format(free),'free'),('All sources ({})'.format(len(saved)),'all')):
                 nav.add_folder(label,'source_group',params={'group':group,'anchor':anchor})
-            nav.end('videos')
+            nav.end('videos', cache=cache)
         else:
             if debrid and addon.getSetting('scraper_provider')=='MDM Link':
                 xbmcgui.Dialog().notification('MDM Flix','{} AllDebrid sources; no free matches returned for this search.'.format(debrid),xbmcgui.NOTIFICATION_INFO,5000)
-            display_sources(nav,saved,addon)
+            display_sources(nav,saved,addon,cache=cache)
     except Cancelled:
-        nav.end()
+        nav.end(cache=cache)
     except (PlaybackError,CatalogueError) as failure:
         xbmcgui.Dialog().ok('MDM Flix',str(failure))
-        nav.add_action('Open settings','open_settings'); nav.end()
+        nav.add_action('Open settings','open_settings'); nav.end(cache=cache)
     except Exception:
         if log: log.warning('Source search failed unexpectedly')
         xbmcgui.Dialog().ok('MDM Flix','Source search failed. Check providers/settings and try again.')
-        nav.end()
+        nav.end(cache=cache)
 
 
-def display_sources(nav,saved,addon=None):
+def display_sources(nav,saved,addon=None,*,cache=True):
     for source_id,source in saved.items():
         size=source.get('size')
         size=' · {:.2f} GiB'.format(size) if type(size) in (int,float) and size>0 else ''
@@ -138,7 +139,7 @@ def display_sources(nav,saved,addon=None):
             context=[('Refresh sources and timings' if episode else 'Refresh sources','ActivateWindow(Videos,plugin://plugin.video.mdm.flix/?'+query+',return)')]
             if episode:context.append(('Timing match report','RunPlugin(plugin://plugin.video.mdm.flix/?action=matching_report)'))
         nav.add_playable(label,'play',params={'source_id':source_id},info={'plot':'{}\n{}'.format(source['provider_name'],note)},context_menu=context)
-    nav.end('videos')
+    nav.end('videos', cache=cache)
 
 
 def show_group(nav,params):

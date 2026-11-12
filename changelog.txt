@@ -1,3 +1,6 @@
+0.17.26
+- Restore Source Select, Rescrape & Select and Rescrape & Auto in title actions.
+
 0.17.25
 - Refresh Next Episodes when a metadata lookup confirms the series has no next episode.
 
