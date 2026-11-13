@@ -31,6 +31,9 @@ def popup(addon,title,button,valid,closed):
     # Defined lazily so the service/policy modules do not allocate GUI windows.
     class Prompt(xbmcgui.WindowXMLDialog):
         def onInit(self):
+            if not valid():
+                self.close()
+                return
             if kind!='intro':self.getControl(1).setLabel(title)
             self.getControl(10).setLabel(button)
             self.setFocusId(10)
@@ -54,8 +57,10 @@ def popup(addon,title,button,valid,closed):
     try:
         if valid():dialog.doModal()
     finally:
-        closed['done']=True
-        dialog.close()
+        try:
+            dialog.close()
+        finally:
+            closed['done']=True
 
 
 class Controls:
@@ -69,6 +74,9 @@ class Controls:
         self.core=core;self.next_lookup=None;self.autoplay_count=0;self.unattended=False
         self.shown=set();self.chapters=[];self.chapter_attempts=0;self.chapter_due=0;self.config_due=0
         self.config=None;self.dialog=None;self.closed=False
+        self.previous_position = None
+        self.intro_end = None
+        self.next_start = None
         self.chapter_key=None;self.marking_due=0;self.feedback_due=None
         self.timing=None;self.external_intro=None;self.external_outro=None;self.observed_duration=0;self.community_intro=[];self.community_outro=[];self.audio_intro=None;self.shared_intro=None;self.shared_outro=None;self.estimated_intro=None;self.audio_hint_signature=None;self.shared_request=None
 
@@ -193,6 +201,26 @@ class Controls:
         if automatic:params.update(next_autoplay=1,chain_count=count,unattended=int(unattended))
         xbmc.executebuiltin('RunPlugin(plugin://plugin.video.mdm.flix/?'+urlencode(params)+')')
 
+    def update_prompt_position(self, position):
+        from resources.lib.playback import next_prompt
+
+        previous = self.previous_position
+        self.previous_position = position
+        holder = self.dialog
+        kind = holder['kind'] if holder else None
+        rewound = previous is not None and previous - position >= 1
+        if self.intro_end is not None and rewound and position < self.intro_end:
+            self.shown.discard('intro')
+            if kind == 'intro':
+                self.dismiss()
+        elif kind == 'intro' and holder['end'] is not None and position >= holder['end']:
+            self.dismiss()
+        if self.next_start is not None and (rewound or position < self.next_start):
+            self.shown.discard('next')
+            if kind in ('next', 'still'):
+                next_prompt.clear()
+                self.dismiss()
+
     def tick(self):
         token=current_token(self.player)
         from resources.lib.playback import next_prompt
@@ -221,6 +249,7 @@ class Controls:
             from resources.lib.playback.player_timings import available
             available(False)
             self.dismiss();self.token=None;self.item=None;self.shown=set();self.chapters=[];self.chapter_attempts=0;self.chapter_due=0;self.config_due=0
+            self.previous_position = self.intro_end = self.next_start = None
             self.next_lookup=None;self.autoplay_count=0;self.unattended=False
             self.timing=None;self.external_intro=None;self.external_outro=None;self.observed_duration=0;self.community_intro=[];self.community_outro=[];self.audio_intro=None;self.shared_intro=None;self.shared_outro=None;self.estimated_intro=None;self.audio_hint_signature=None;self.shared_request=None;self.marking_due=0;self.feedback_due=None
             if token:
@@ -233,7 +262,9 @@ class Controls:
                     available(True)
         if not self.item or not self.valid(self.token):return
         try:
-            position=finite(self.player.getTime());duration=finite(self.player.getTotalTime())
+            position=finite(self.player.getTime())
+            self.update_prompt_position(position)
+            duration=finite(self.player.getTotalTime())
             if not duration or position>duration:return
             now=time.monotonic()
             if now>=self.config_due:
@@ -297,7 +328,6 @@ class Controls:
                     if holder.get('kind') in ('intro','mark_intro','rate_intro') and config['intro_mode']=='Off':active=False
                     if holder.get('online') and holder.get('kind')=='intro' and self.addon.getSetting('episode_timing_lookup')=='false':active=False
                     if expired or outside or not active:
-                        if outside and holder.get('kind')=='intro':self.shown.discard('intro')
                         if holder['kind'] in ('next','still'):
                             next_prompt.clear()
                             self.shown.discard('next')
@@ -343,6 +373,7 @@ class Controls:
                 observation=dict(timing or {},kind='intro',start=intro[0],end=intro[1])
                 timing_feedback.remember(context,observation,'intro')
             if intro and 'intro' not in self.shown and intro[0]<=position<intro[1]-2:
+                self.intro_end = intro[1]
                 matched = bool(timing and intro == external)
                 self.prompt('intro','','Skip Intro',
                             lambda token:self.skip(token,intro[1]),position,duration,intro[1],matched,
@@ -387,6 +418,7 @@ class Controls:
                 target=self.next_lookup['target'] if self.next_lookup else None
                 if self.core and not target:return
                 automatic=config['next_autoplay'] and target is not None
+                self.next_start = trigger
                 if automatic and self.autoplay_count>=next_prompt.CHECK_AFTER and not self.unattended:
                     show=self.item.get('tvshowtitle')
                     title=f'Are you still watching “{show}”?' if show else 'Are you still watching?'
@@ -395,7 +427,7 @@ class Controls:
                 else:
                     title='S{season:02d}  E{episode:02d}'.format(**target) if target else ''
                     self.prompt('next',title,'Next Episode',self.next,position,duration,
-                                window_start=trigger if automatic else None,target=target,
+                                window_start=trigger,target=target,
                                 countdown=next_prompt.COUNTDOWN if automatic else None)
         except (EpisodeError,RuntimeError):
             # Episode assistance must never stop playback or the progress observer.

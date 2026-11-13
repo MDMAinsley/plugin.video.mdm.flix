@@ -1,3 +1,6 @@
+0.17.28
+- Let Skip Intro and Next Episode return after rewinding and close Skip Intro at the intro end.
+
 0.17.27
 - Wait for Kodi to finish stopping and refreshing before launching the next episode.
 
