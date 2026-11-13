@@ -1,3 +1,6 @@
+0.17.31
+- Dev version bump to test the MDM add-on update popup.
+
 0.17.30
 - Set the Still Watching reminder to 0 to turn it off while keeping next-episode autoplay.
 
