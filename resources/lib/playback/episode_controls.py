@@ -334,7 +334,7 @@ class Controls:
                 self.dismiss();return
             if (self.dialog and self.dialog['kind']=='still'
                     and self.dialog.get('choice') is None
-                    and self.autoplay_count < config['check_after']):
+                    and (not config['check_after'] or self.autoplay_count < config['check_after'])):
                 next_prompt.clear()
                 self.shown.discard('next')
                 self.dismiss()
@@ -448,7 +448,7 @@ class Controls:
                 if self.core and not target:return
                 automatic=config['next_autoplay'] and target is not None
                 self.next_start = trigger
-                if automatic and self.autoplay_count>=config['check_after'] and not self.unattended:
+                if automatic and config['check_after'] and self.autoplay_count>=config['check_after'] and not self.unattended:
                     show=self.item.get('tvshowtitle')
                     title=f'Are you still watching “{show}”?' if show else 'Are you still watching?'
                     self.prompt('still',title,'Ask again later',self.next,position,duration,

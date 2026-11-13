@@ -1,3 +1,6 @@
+0.17.30
+- Set the Still Watching reminder to 0 to turn it off while keeping next-episode autoplay.
+
 0.17.29
 - Autoplay the next episode after Watch Credits reaches the end.
 - Configure the fullscreen Still Watching reminder and reset its count after playback interaction.
