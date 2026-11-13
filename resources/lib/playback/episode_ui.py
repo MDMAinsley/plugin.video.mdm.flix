@@ -1,6 +1,7 @@
 """Per-show intro setup and deliberate next-episode navigation."""
 import json
 import re
+import time
 from datetime import date
 from urllib.parse import urlencode
 import xbmc
@@ -94,6 +95,35 @@ def following(client,identifier,season,episode,today=None,watched=(),*,include_m
     return None
 
 
+def wait_for_handoff(player, token):
+    from resources.lib.playback.episode_controls import current_token
+
+    monitor = xbmc.Monitor()
+    deadline = time.monotonic() + 15
+    quiet_since = None
+    while time.monotonic() < deadline and not monitor.abortRequested():
+        if player.isPlayingVideo() and current_token(player) != token:
+            return False
+        # Returning from fullscreen can refresh the episode directory after
+        # Stop returns. Kodi 21 can abort if a second busy dialog starts then.
+        busy = xbmc.getCondVisibility(
+            'Container.IsUpdating | System.HasActiveModalDialog | '
+            'Window.IsActive(fullscreenvideo) | Window.IsActive(busydialog) | '
+            'Window.IsActive(busydialognocancel)')
+        now = time.monotonic()
+        if busy or player.isPlaying():
+            quiet_since = None
+        elif quiet_since is None:
+            quiet_since = now
+        elif now - quiet_since >= 1.25:
+            return True
+        if monitor.waitForAbort(0.1):
+            return False
+    if not monitor.abortRequested():
+        xbmcgui.Dialog().notification('MDM Flix', 'Kodi is still busy. Open the next episode from the episode list.')
+    return False
+
+
 def play_next(addon,core,params):
     from resources.lib.playback import next_prompt
     from resources.lib.playback.episode_controls import current_token
@@ -127,12 +157,13 @@ def play_next(addon,core,params):
         automatic = params.get('next_autoplay') == '1' and configuration(addon)['next_autoplay']
         action='autoplay' if automatic or addon.getSetting('playback_mode')=='Autoplay' else 'sources'
         options=dict(next_item,action=action,resume_mode='resume')
+        if player.isPlayingVideo():player.stop()
+        if not wait_for_handoff(player, token):return
         if automatic:
             count=number(params.get('chain_count',0),0,next_prompt.CHECK_AFTER)
             nonce=next_prompt.queue(next_item,count,params.get('unattended')=='1')
             if nonce:options['episode_chain']=nonce
         url='plugin://plugin.video.mdm.flix/?'+urlencode(options)
-        if player.isPlayingVideo():player.stop()
         if action=='autoplay':xbmc.executebuiltin('PlayMedia('+url+')')
         else:xbmc.executebuiltin('ActivateWindow(Videos,'+url+',return)')
     except (EpisodeError,CatalogueError,ProgressError,RuntimeError,ValueError,TypeError) as error:

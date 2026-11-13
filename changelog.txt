@@ -1,3 +1,6 @@
+0.17.27
+- Wait for Kodi to finish stopping and refreshing before launching the next episode.
+
 0.17.26
 - Restore Source Select, Rescrape & Select and Rescrape & Auto in title actions.
 
