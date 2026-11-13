@@ -9,7 +9,8 @@ import xbmcgui
 PROPERTY = 'MDM.Flix.NextPrompt'
 CHAIN = 'MDM.Flix.EpisodeChain'
 COUNTDOWN = 10
-CHECK_AFTER = 5
+DEFAULT_CHECK_AFTER = 3
+MAX_CHECK_AFTER = 10
 EPISODE_KEYS = ('tmdb_id', 'season', 'episode')
 
 
@@ -51,7 +52,7 @@ def take(candidate):
     if (pending.get('expires', 0) >= time.time()
             and pending.get('item') == [candidate['item'][key] for key in EPISODE_KEYS]):
         count=pending.get('count')
-        if type(count) is int and 0<=count<=CHECK_AFTER:
+        if type(count) is int and 0<=count<=MAX_CHECK_AFTER:
             return count,pending.get('unattended') is True
     return 0, False
 

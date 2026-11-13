@@ -47,7 +47,7 @@ def popup(addon,title,button,valid,closed):
                 if kind not in ('intro','next','still'):self.close()
                 if valid() and xbmc.Player().isPlayingVideo():xbmc.Player().pause()
             elif identifier in (9,10,92,216,247,257):
-                closed['choose'](11)
+                closed['choose'](11, dismiss_only=True)
         def onClick(self,identifier):
             if identifier in (10,11) or kind=='still' and identifier==12:
                 closed['choose'](identifier,stop=kind=='still' and identifier==11)
@@ -77,6 +77,7 @@ class Controls:
         self.previous_position = None
         self.intro_end = None
         self.next_start = None
+        self.credits_token = None
         self.chapter_key=None;self.marking_due=0;self.feedback_due=None
         self.timing=None;self.external_intro=None;self.external_outro=None;self.observed_duration=0;self.community_intro=[];self.community_outro=[];self.audio_intro=None;self.shared_intro=None;self.shared_outro=None;self.estimated_intro=None;self.audio_hint_signature=None;self.shared_request=None
 
@@ -129,13 +130,18 @@ class Controls:
         def execute():
             if valid():accept(token)
         lock=threading.Lock()
-        def choose(choice,*,stop=False):
+        def choose(choice,*,stop=False,dismiss_only=False):
             with lock:
                 if holder.get('choice') is not None or holder.get('cancelled') or holder['done']:
                     return
                 eligible=valid()
                 holder['choice']=choice
-            if next_kind and choice==11:next_prompt.clear()
+            if next_kind and choice==11:
+                if kind=='next' and countdown is not None and eligible and not (stop or dismiss_only):
+                    self.autoplay_count = 0
+                    self.credits_token = token
+                else:
+                    next_prompt.clear()
             dialog=holder.get('dialog')
             if dialog:
                 try:dialog.close()
@@ -145,7 +151,7 @@ class Controls:
                 if self.valid(token):self.player.stop()
             elif next_kind and choice in (10,12,20):
                 automatic=countdown is not None or kind=='still'
-                count=min(self.autoplay_count+1,next_prompt.CHECK_AFTER) if choice==20 else 0
+                count=min(self.autoplay_count+1,next_prompt.MAX_CHECK_AFTER) if choice==20 else 0
                 self.next(token,automatic=automatic,count=count,unattended=self.unattended or choice==12)
             elif choice==10:
                 execute()
@@ -185,6 +191,7 @@ class Controls:
     def skip(self,token,end):
         if not self.valid(token):return
         try:
+            self.autoplay_count = 0
             self.player.seekTime(end)
             if self.addon.getSetting('episode_feedback_prompt')=='true':
                 self.feedback_due=time.monotonic()+3
@@ -217,9 +224,16 @@ class Controls:
             self.dismiss()
         if self.next_start is not None and (rewound or position < self.next_start):
             self.shown.discard('next')
+            if self.credits_token:
+                next_prompt.clear()
+                self.credits_token = None
             if kind in ('next', 'still'):
                 next_prompt.clear()
                 self.dismiss()
+
+    def interacted(self, token):
+        if token and self.token == token:
+            self.autoplay_count = 0
 
     def tick(self):
         token=current_token(self.player)
@@ -231,6 +245,14 @@ class Controls:
             if not config['enabled'] or not config['next_enabled']:
                 next_prompt.clear()
                 self.dismiss()
+            elif self.credits_token == self.token:
+                self.credits_token = None
+                self.dismiss()
+                if config['next_autoplay']:
+                    self.next(token=self.token,automatic=True,count=1,unattended=self.unattended)
+                else:
+                    next_prompt.clear()
+                return
             elif self.dialog and self.dialog['done']:
                 choice=self.dialog.get('choice')
                 if choice==11:next_prompt.clear()
@@ -250,6 +272,7 @@ class Controls:
             available(False)
             self.dismiss();self.token=None;self.item=None;self.shown=set();self.chapters=[];self.chapter_attempts=0;self.chapter_due=0;self.config_due=0
             self.previous_position = self.intro_end = self.next_start = None
+            self.credits_token = None
             self.next_lookup=None;self.autoplay_count=0;self.unattended=False
             self.timing=None;self.external_intro=None;self.external_outro=None;self.observed_duration=0;self.community_intro=[];self.community_outro=[];self.audio_intro=None;self.shared_intro=None;self.shared_outro=None;self.estimated_intro=None;self.audio_hint_signature=None;self.shared_request=None;self.marking_due=0;self.feedback_due=None
             if token:
@@ -309,6 +332,12 @@ class Controls:
             config=self.config
             if not config['enabled']:
                 self.dismiss();return
+            if (self.dialog and self.dialog['kind']=='still'
+                    and self.dialog.get('choice') is None
+                    and self.autoplay_count < config['check_after']):
+                next_prompt.clear()
+                self.shown.discard('next')
+                self.dismiss()
             if self.core and config['next_enabled'] and self.next_lookup is None:
                 self.next_lookup={'done':False,'target':None}
                 threading.Thread(target=self.resolve_next,args=(self.item,self.next_lookup),
@@ -419,7 +448,7 @@ class Controls:
                 if self.core and not target:return
                 automatic=config['next_autoplay'] and target is not None
                 self.next_start = trigger
-                if automatic and self.autoplay_count>=next_prompt.CHECK_AFTER and not self.unattended:
+                if automatic and self.autoplay_count>=config['check_after'] and not self.unattended:
                     show=self.item.get('tvshowtitle')
                     title=f'Are you still watching “{show}”?' if show else 'Are you still watching?'
                     self.prompt('still',title,'Ask again later',self.next,position,duration,

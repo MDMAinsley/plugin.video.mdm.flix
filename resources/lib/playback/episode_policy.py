@@ -35,10 +35,13 @@ def enabled(addon,name,default=True):
 
 
 def configuration(addon,preset=None):
+    from resources.lib.playback.next_prompt import DEFAULT_CHECK_AFTER, MAX_CHECK_AFTER
+
     preset=preset or {}
     return dict(enabled=preset.get('enabled',enabled(addon,'episode_new_shows')),
                 next_enabled=enabled(addon,'episode_next_enabled'),
                 next_autoplay=enabled(addon,'episode_next_autoplay'),
+                check_after=int(bounded_setting(addon,'episode_still_watching_after',DEFAULT_CHECK_AFTER,1,MAX_CHECK_AFTER)),
                 next_mode=addon.getSetting('episode_next_mode') or 'Chapters',
                 percent=bounded_setting(addon,'episode_next_percent',95,50,99),
                 remaining=bounded_setting(addon,'episode_next_seconds',60,5,600),

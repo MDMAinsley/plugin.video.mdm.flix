@@ -160,7 +160,7 @@ def play_next(addon,core,params):
         if player.isPlayingVideo():player.stop()
         if not wait_for_handoff(player, token):return
         if automatic:
-            count=number(params.get('chain_count',0),0,next_prompt.CHECK_AFTER)
+            count=number(params.get('chain_count',0),0,next_prompt.MAX_CHECK_AFTER)
             nonce=next_prompt.queue(next_item,count,params.get('unattended')=='1')
             if nonce:options['episode_chain']=nonce
         url='plugin://plugin.video.mdm.flix/?'+urlencode(options)

@@ -1,3 +1,7 @@
+0.17.29
+- Autoplay the next episode after Watch Credits reaches the end.
+- Configure the fullscreen Still Watching reminder and reset its count after playback interaction.
+
 0.17.28
 - Let Skip Intro and Next Episode return after rewinding and close Skip Intro at the intro end.
 

@@ -17,6 +17,7 @@ class Observer(xbmc.Player):
         self.sync_id=None
         self.history_sync=False
         self.boot_id=uuid.uuid4().hex
+        self.on_interaction = None
 
     def current_token(self):
         try:
@@ -95,7 +96,8 @@ class Observer(xbmc.Player):
                         self.warning('This video has a different length; starting from the beginning.')
                     else:
                         try:
-                            self.seekTime(resume);self.seek_pending=resume;self.seek_deadline=time.monotonic()+15
+                            self.seek_pending=resume;self.seek_deadline=time.monotonic()+15
+                            self.seekTime(resume)
                         except RuntimeError:
                             self.warning('This video could not resume. Your saved position is kept; choose Start again to replace it.')
                             self.active=None;return
@@ -113,14 +115,29 @@ class Observer(xbmc.Player):
 
     def onPlayBackPaused(self):
         with self.lock:
+            self.note_interaction()
             if self.sample():self.write(True)
+
+    def onPlayBackResumed(self):
+        self.note_interaction()
+
+    def onPlayBackSpeedChanged(self, speed):
+        if speed not in (0, 1):
+            self.note_interaction()
+
+    def note_interaction(self):
+        if self.on_interaction:
+            self.on_interaction(self.current_token())
 
     def onPlayBackSeek(self,time,seekOffset):
         with self.lock:
+            if not self.seek_pending:
+                self.note_interaction()
             if self.sample():self.write(True)
 
     def onPlayBackSeekChapter(self,chapter):
         with self.lock:
+            self.note_interaction()
             if self.sample():self.write(True)
 
     def finish(self):
@@ -157,6 +174,7 @@ def run(addon):
     core=_load_core()
     from resources.lib.playback.episode_controls import Controls
     controls=Controls(addon,core=core)
+    observer.on_interaction = controls.interacted
     from resources.lib.playback.timing_service import start
     timing_worker=start(addon,monitor)
     from resources.lib.playback.contributions import start as start_sharing
