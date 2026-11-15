@@ -3,12 +3,12 @@ import xbmc
 import xbmcgui
 import xbmcvfs
 
-from resources.lib.catalogue.android_search import HELPER
+from resources.lib.catalogue.android_search import HELPER, VERSION_PROPERTY
 
 DOWNLOADER = 'com.esaba.downloader'
 AMAZON_STORE = 'com.amazon.venezia'
 DOWNLOAD_URL = ('https://raw.githubusercontent.com/MDMAinsley/plugin.video.mdm.flix/main/'
-                'resources/android/mdm-flix-search-1.6.apk')
+                'resources/android/mdm-flix-search-1.8.apk')
 ACTION = 'RunPlugin(plugin://plugin.video.mdm.flix/?action=voice_search_setup&automatic=1)'
 TITLE = 'MDM Flix Voice Search'
 OFFERED = 'MDM.Flix.VoiceSetupOffered'
@@ -31,7 +31,9 @@ class WatchSetting:
         if current and not self.was_enabled:
             xbmc.executebuiltin(ACTION)
         elif self.was_enabled and not current:
-            xbmcgui.Window(10000).clearProperty(OFFERED)
+            home = xbmcgui.Window(10000)
+            home.clearProperty(OFFERED)
+            home.clearProperty(VERSION_PROPERTY)
         self.was_enabled = current
 
 

@@ -1,13 +1,16 @@
 """One-use loopback channel for a confirmed Android search phrase."""
 import json
+import re
 import secrets
 import socket
 from contextlib import contextmanager
 from time import monotonic
 
 import xbmc
+import xbmcgui
 
 HELPER = "dev.mdm.firetvvoiceprobe"
+VERSION_PROPERTY = "MDM.Flix.VoiceHelperVersion"
 NEW_HELPER_TASK = 0x10008000  # Android FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_CLEAR_TASK
 
 
@@ -47,11 +50,15 @@ def read_query(listener, token, seconds=90, aborted=lambda: False, ready_timeout
                 if not isinstance(result, dict) or result.get("token") != token or "query" not in result:
                     continue
                 query = result["query"]
+                if query is not None and (not isinstance(query, str) or len(query) > 200):
+                    continue
+                version = result.get("version")
+                if not isinstance(version, str) or not re.fullmatch(r"[0-9]{1,3}(?:\.[0-9]{1,3}){1,2}", version):
+                    version = "Update to check"
+                xbmcgui.Window(10000).setProperty(VERSION_PROPERTY, version)
                 if query is None:
                     connection.sendall(b"1")
                     ready = True
-                    continue
-                if not isinstance(query, str) or len(query) > 200:
                     continue
                 connection.sendall(b"1")
                 return True, query.strip()
@@ -63,6 +70,7 @@ def read_query(listener, token, seconds=90, aborted=lambda: False, ready_timeout
 def prompt(addon, heading):
     if (addon.getSetting("device_voice_search") == "true"
             and xbmc.getCondVisibility("System.Platform.Android")):
+        xbmcgui.Window(10000).clearProperty(VERSION_PROPERTY)
         monitor = xbmc.Monitor()
         try:
             with search_session() as (listener, token):

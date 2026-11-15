@@ -1,3 +1,6 @@
+0.17.32
+- Update the Fire TV search helper and report its installed version to Home after Search opens.
+
 0.17.31
 - Dev version bump to test the MDM add-on update popup.
 
