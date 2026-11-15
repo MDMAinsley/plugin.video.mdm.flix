@@ -1,3 +1,6 @@
+0.17.33
+- Return to MDM Home when Previous is pressed in the Fire TV search keyboard.
+
 0.17.32
 - Update the Fire TV search helper and report its installed version to Home after Search opens.
 

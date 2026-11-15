@@ -11,6 +11,7 @@ import xbmcgui
 
 HELPER = "dev.mdm.firetvvoiceprobe"
 VERSION_PROPERTY = "MDM.Flix.VoiceHelperVersion"
+RETURN_HOME = object()
 NEW_HELPER_TASK = 0x10008000  # Android FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_CLEAR_TASK
 
 
@@ -61,6 +62,8 @@ def read_query(listener, token, seconds=90, aborted=lambda: False, ready_timeout
                     ready = True
                     continue
                 connection.sendall(b"1")
+                if not query and result.get("return_home") is True:
+                    return True, RETURN_HOME
                 return True, query.strip()
             except (OSError, ValueError):
                 continue

@@ -1,7 +1,8 @@
 from resources.lib import device_policy
+import xbmc
 import xbmcgui
 
-from resources.lib.catalogue.android_search import prompt
+from resources.lib.catalogue.android_search import RETURN_HOME, prompt
 from resources.lib.catalogue.tmdb import TMDB, CatalogueError, number
 from resources.lib.metadata.infolabels import build_video_info
 
@@ -73,14 +74,20 @@ def show(nav, addon, core, params):
         nav.end(cache=not interactive)
 
 
+def finish_cancelled_search(nav, content, query):
+    nav.end(content, cache=False)
+    if query is RETURN_HOME:
+        xbmc.executebuiltin("ActivateWindow(Home)")
+
+
 def listing(nav, client, action, params):
     media, kind = LIST_ROUTES[action]
     query = params.get("query", "")
     interactive = kind == "search" and not query
     if interactive:
         query = prompt(client.addon, "Search Movies" if media == "movie" else "Search TV Shows")
-        if not query:
-            nav.end("movies" if media == "movie" else "tvshows", cache=False)
+        if not query or query is RETURN_HOME:
+            finish_cancelled_search(nav, "movies" if media == "movie" else "tvshows", query)
             return
     page = number(params.get("page", 1), 1, 500)
     data = client.listing(media, kind, page, query)
@@ -112,8 +119,8 @@ def mixed_search(nav, client, params):
     interactive = not query
     if interactive:
         query = prompt(client.addon, "Search films and TV")
-        if not query:
-            nav.end("videos", cache=False)
+        if not query or query is RETURN_HOME:
+            finish_cancelled_search(nav, "videos", query)
             return
     page = number(params.get("page", 1), 1, 500)
     data = client.search_all(query, page)
