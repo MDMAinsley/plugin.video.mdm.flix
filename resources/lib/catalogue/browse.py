@@ -3,6 +3,7 @@ import xbmc
 import xbmcgui
 
 from resources.lib.catalogue.android_search import RETURN_HOME, prompt
+from resources.lib.catalogue.search_history import remember
 from resources.lib.catalogue.tmdb import TMDB, CatalogueError, number
 from resources.lib.metadata.infolabels import build_video_info
 
@@ -70,7 +71,9 @@ def show(nav, addon, core, params):
     except CatalogueError as failure:
         xbmcgui.Dialog().ok("MDM Flix", str(failure))
         nav.add_action("Open TMDB settings", "open_settings")
-        interactive = action in ("search_all", "search_movies", "search_tv") and not params.get("query")
+        interactive = action in ("search_all", "search_movies", "search_tv") and (
+            not params.get("query") or params.get("recent") == "1"
+        )
         nav.end(cache=not interactive)
 
 
@@ -89,6 +92,9 @@ def listing(nav, client, action, params):
         if not query or query is RETURN_HOME:
             finish_cancelled_search(nav, "movies" if media == "movie" else "tvshows", query)
             return
+    from_history = params.get("recent") == "1" and kind == "search"
+    if interactive or from_history:
+        remember(client.addon, query, action)
     page = number(params.get("page", 1), 1, 500)
     data = client.listing(media, kind, page, query)
     count = 0
@@ -111,7 +117,7 @@ def listing(nav, client, action, params):
     if page < total:
         nav.add_folder("Next page ({})".format(page + 1), action,
                        params={"page": page + 1, "query": query})
-    nav.end("movies" if media == "movie" else "tvshows", cache=not interactive)
+    nav.end("movies" if media == "movie" else "tvshows", cache=not (interactive or from_history))
 
 
 def mixed_search(nav, client, params):
@@ -122,6 +128,9 @@ def mixed_search(nav, client, params):
         if not query or query is RETURN_HOME:
             finish_cancelled_search(nav, "videos", query)
             return
+    from_history = params.get("recent") == "1"
+    if interactive or from_history:
+        remember(client.addon, query, "search")
     page = number(params.get("page", 1), 1, 500)
     data = client.search_all(query, page)
     from resources.lib.catalogue.cards import add_title
@@ -145,7 +154,7 @@ def mixed_search(nav, client, params):
     total = min(total, 500) if type(total) is int and total > 0 else 1
     if page < total:
         nav.add_folder("Next page ({})".format(page + 1), "search_all", params={"page": page + 1, "query": query})
-    nav.end("videos", cache=not interactive)
+    nav.end("videos", cache=not (interactive or from_history))
 
 
 def seasons(nav, client, params):

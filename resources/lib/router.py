@@ -179,6 +179,11 @@ class Router:
             from resources.lib.catalogue.voice_setup import offer
             offer(self.addon, automatic=self.params.get("automatic") == "1")
 
+        elif action in ("recent_searches", "clear_search_history"):
+            from resources.lib.catalogue.search_history import show
+            show(nav, self.addon, clear_only=action == "clear_search_history")
+            return
+
         elif action == ACTION_SEARCH:
             from resources.lib.catalogue.browse import show
             show(nav, self.addon, self.core, dict(self.params, action="search_all"))

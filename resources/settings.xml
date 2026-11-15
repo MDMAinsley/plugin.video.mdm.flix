@@ -6,6 +6,10 @@
     <setting id="autoplay_attempts" type="select" label="Autoplay maximum sources" values="1|2|3" default="3" />
     <setting id="last_autoplay_summary" type="text" label="Legacy Autoplay summary (unused)" default="" visible="false" />
   </category>
+  <category label="Search">
+    <setting id="device_search_history" type="bool" label="Save recent searches on this device" default="true" />
+    <setting type="action" label="Clear search history" action="RunPlugin(plugin://plugin.video.mdm.flix/?action=clear_search_history)" />
+  </category>
   <category label="Viewing progress">
     <setting id="progress_enabled" type="bool" label="Save viewing progress" default="true" />
     <setting type="action" label="Viewing progress source" action="RunPlugin(plugin://plugin.video.mdm.flix/?action=mdblist_progress_source)" />

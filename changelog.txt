@@ -1,3 +1,6 @@
+0.17.34
+- Save the last ten searches per device and let users repeat or clear them.
+
 0.17.33
 - Return to MDM Home when Previous is pressed in the Fire TV search keyboard.
 
